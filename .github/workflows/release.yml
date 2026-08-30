@@ -37,7 +37,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.24'
 
       - name: Build daemon
         env:
@@ -50,10 +50,11 @@ jobs:
           if [ "${{ matrix.goos }}" = "windows" ]; then
             LDFLAGS="$LDFLAGS -H windowsgui"
           fi
+          cd daemon
           go build \
             -ldflags="$LDFLAGS" \
-            -o build/${{ matrix.output }} \
-            ./daemon/cmd/chronotrace-daemon
+            -o ../build/${{ matrix.output }} \
+            ./cmd/chronotrace-daemon
 
       - uses: actions/upload-artifact@v4
         with:
@@ -69,69 +70,43 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.24'
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - name: Install frontend deps
+      - name: Install frontend deps and build dist
         working-directory: gui/frontend
-        run: npm install
-
-      - name: Build GUI
-        working-directory: gui
-        run: wails build -platform windows/amd64 -o ChronoTrace-windows-amd64.exe
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ChronoTrace-windows-amd64.exe
-          path: gui/build/bin/ChronoTrace-windows-amd64.exe
-
-  # ── GUI — macOS ───────────────────────────────────────────────
-  gui-macos:
-    name: GUI (macOS)
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - name: Install frontend deps
-        working-directory: gui/frontend
-        run: npm install
-
-      - name: Build GUI (Intel)
-        working-directory: gui
-        run: wails build -platform darwin/amd64
-
-      - name: Build GUI (Apple Silicon)
-        working-directory: gui
-        run: wails build -platform darwin/arm64
-
-      - name: Package
         run: |
-          cd gui/build/bin
-          zip -r ChronoTrace-darwin-amd64.zip ChronoTrace.app || true
-          mv ChronoTrace.app ChronoTrace-arm64.app
-          zip -r ChronoTrace-darwin-arm64.zip ChronoTrace-arm64.app || true
+          npm install
+          npm run build
+
+      - name: Build Windows GUI Binary
+        working-directory: gui
+        run: |
+          go build -tags "desktop,production" -ldflags="-s -w -H windowsgui -X main.version=${{ github.ref_name }}" -o ../build/ChronoTrace.exe .
+
+      - name: Build Windows Daemon
+        working-directory: daemon
+        run: |
+          go build -ldflags="-s -w -H windowsgui -X main.version=${{ github.ref_name }}" -o ../build/chronotrace-daemon.exe ./cmd/chronotrace-daemon
+
+      - name: Package Windows 1-Click Bundle
+        run: |
+          mkdir -p package-windows
+          cp build/ChronoTrace.exe package-windows/
+          cp build/chronotrace-daemon.exe package-windows/
+          cp gui/build/windows/icon.ico package-windows/
+          cp scripts/install-windows.bat package-windows/
+          cp scripts/install-windows.ps1 package-windows/
+          cp README.md package-windows/
+          Compress-Archive -Path package-windows/* -DestinationPath build/ChronoTrace-Windows-x64-Setup.zip -Force
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ChronoTrace-darwin
-          path: gui/build/bin/*.zip
+          name: ChronoTrace-Windows-x64-Setup.zip
+          path: build/ChronoTrace-Windows-x64-Setup.zip
 
   # ── GUI — Linux ───────────────────────────────────────────────
   gui-linux:
@@ -142,7 +117,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.24'
 
       - uses: actions/setup-node@v4
         with:
@@ -151,31 +126,89 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.0-dev \
-            libayatana-appindicator3-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libayatana-appindicator3-dev
 
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - name: Install frontend deps
+      - name: Install frontend deps and build dist
         working-directory: gui/frontend
-        run: npm install
+        run: |
+          npm install
+          npm run build
 
-      - name: Build GUI
+      - name: Build Linux GUI Binary
         working-directory: gui
-        run: wails build -platform linux/amd64
+        run: |
+          go build -tags "desktop,production" -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o ../build/ChronoTrace .
+
+      - name: Build Linux Daemon
+        working-directory: daemon
+        run: |
+          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o ../build/chronotrace-daemon ./cmd/chronotrace-daemon
+
+      - name: Package Linux Bundle
+        run: |
+          mkdir -p package-linux
+          cp build/ChronoTrace package-linux/
+          cp build/chronotrace-daemon package-linux/
+          cp gui/build/linux/icon.png package-linux/
+          cp scripts/install-linux.sh package-linux/
+          cp README.md package-linux/
+          tar -czvf build/ChronoTrace-Linux-x64.tar.gz -C package-linux .
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ChronoTrace-linux-amd64
-          path: gui/build/bin/ChronoTrace
+          name: ChronoTrace-Linux-x64.tar.gz
+          path: build/ChronoTrace-Linux-x64.tar.gz
+
+  # ── GUI — macOS ───────────────────────────────────────────────
+  gui-macos:
+    name: GUI (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend deps and build dist
+        working-directory: gui/frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Build macOS Daemon
+        working-directory: daemon
+        run: |
+          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o ../build/chronotrace-daemon ./cmd/chronotrace-daemon
+
+      - name: Build macOS GUI
+        working-directory: gui
+        run: |
+          go build -tags "desktop,production" -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o ../build/ChronoTrace .
+
+      - name: Package macOS Bundle
+        run: |
+          mkdir -p package-macos
+          cp build/ChronoTrace package-macos/
+          cp build/chronotrace-daemon package-macos/
+          cp gui/build/darwin/icon.png package-macos/
+          cp scripts/install-macos.sh package-macos/
+          cp README.md package-macos/
+          zip -r build/ChronoTrace-macOS-Universal.zip package-macos/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChronoTrace-macOS-Universal.zip
+          path: build/ChronoTrace-macOS-Universal.zip
 
   # ── Create GitHub Release ─────────────────────────────────────
   release:
     name: Create Release
-    needs: [daemon, gui-windows, gui-macos, gui-linux]
+    needs: [daemon, gui-windows, gui-linux, gui-macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -201,34 +234,31 @@ jobs:
           echo "$CHANGES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Create Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: "ChronoTrace ${{ github.ref_name }}"
           body: |
-            ## What's Changed
+            ## ChronoTrace ${{ github.ref_name }} — Privacy-First Screen Time Tracker
+
+            ### ✨ 1-Click Install Packages (Recommended)
+            - **🪟 Windows (x64)**: [`ChronoTrace-Windows-x64-Setup.zip`](https://github.com/mahmud-r-farhan/chronotrace/releases/download/${{ github.ref_name }}/ChronoTrace-Windows-x64-Setup.zip) — Extract and double-click `install-windows.bat`.
+            - **🐧 Linux (x64)**: [`ChronoTrace-Linux-x64.tar.gz`](https://github.com/mahmud-r-farhan/chronotrace/releases/download/${{ github.ref_name }}/ChronoTrace-Linux-x64.tar.gz) — Extract and run `./install-linux.sh`.
+            - **🍎 macOS (Universal)**: [`ChronoTrace-macOS-Universal.zip`](https://github.com/mahmud-r-farhan/chronotrace/releases/download/${{ github.ref_name }}/ChronoTrace-macOS-Universal.zip) — Extract and run `./install-macos.sh`.
+
+            ### 📦 Standalone Headless Daemon Binaries
+            - `chronotrace-daemon-windows-amd64.exe`
+            - `chronotrace-daemon-linux-amd64`
+            - `chronotrace-daemon-linux-arm64`
+            - `chronotrace-daemon-darwin-amd64`
+            - `chronotrace-daemon-darwin-arm64`
+
+            ### 📝 What's Changed
             ${{ steps.changelog.outputs.CHANGES }}
 
-            ## Installation
-
-            ### Daemon (all platforms)
-            Download the appropriate binary for your platform and run it.
-            It will auto-register itself on first run via `--autostart-install`.
-
-            | Platform | Binary |
-            |---|---|
-            | Windows x64 | `chronotrace-daemon-windows-amd64.exe` |
-            | Linux x64   | `chronotrace-daemon-linux-amd64` |
-            | Linux arm64 | `chronotrace-daemon-linux-arm64` |
-            | macOS Intel | `chronotrace-daemon-darwin-amd64` |
-            | macOS Apple Silicon | `chronotrace-daemon-darwin-arm64` |
-
-            ### GUI (optional)
-            Download the GUI for your platform — open it any time to view your usage stats.
-
             ---
-            > ChronoTrace daemon uses **< 15 MB RAM** and **~0% CPU**.  
-            > Your data **never leaves your device**.
+            🔒 **100% Offline**: All metrics stay locally on your machine in SQLite.  
+            ⚡ **Resource Benchmark**: Under **15MB RAM** & **~0% CPU**.
           files: release-assets/**/*
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}

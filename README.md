@@ -43,18 +43,28 @@ chronotrace-gui (Wails)  ◄──────────── HTTP    ┘
 
 ---
 
-## 📦 Installation
+## 📦 1-Click Installation (Recommended)
 
-### Option 1 — Download Release (Recommended)
+Download the complete package for your platform from [Releases](https://github.com/mahmud-r-farhan/chronotrace/releases):
 
-1. Go to [Releases](https://github.com/mahmud-r-farhan/chronotrace/releases)
-2. Download the daemon binary for your platform:
-   - **Windows**: `chronotrace-daemon-windows-amd64.exe`
-   - **Linux x64**: `chronotrace-daemon-linux-amd64`
-   - **Linux arm64**: `chronotrace-daemon-linux-arm64`
-   - **macOS Intel**: `chronotrace-daemon-darwin-amd64`
-   - **macOS Apple Silicon**: `chronotrace-daemon-darwin-arm64`
-3. Optionally download the **GUI** for your platform.
+| Platform | Package | Setup Method |
+|---|---|---|
+| 🪟 **Windows (x64)** | [`ChronoTrace-Windows-x64-Setup.zip`](https://github.com/mahmud-r-farhan/chronotrace/releases) | Extract & double-click `install-windows.bat` |
+| 🐧 **Linux (x64)** | [`ChronoTrace-Linux-x64.tar.gz`](https://github.com/mahmud-r-farhan/chronotrace/releases) | Extract & run `./install-linux.sh` |
+| 🍎 **macOS (Universal)** | [`ChronoTrace-macOS-Universal.zip`](https://github.com/mahmud-r-farhan/chronotrace/releases) | Extract & run `./install-macos.sh` |
+
+*The installer automatically registers the lightweight background tracking daemon to start with your operating system, creates desktop/start menu shortcuts, and launches the application.*
+
+---
+
+### Standalone Headless Daemon Binaries
+
+For servers or users who only want headless tracking via the REST API:
+- **Windows**: `chronotrace-daemon-windows-amd64.exe`
+- **Linux x64**: `chronotrace-daemon-linux-amd64`
+- **Linux arm64**: `chronotrace-daemon-linux-arm64`
+- **macOS Intel**: `chronotrace-daemon-darwin-amd64`
+- **macOS Apple Silicon**: `chronotrace-daemon-darwin-arm64`
 
 ### Option 2 — Build from Source
 

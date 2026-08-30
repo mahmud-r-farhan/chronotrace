@@ -127,13 +127,19 @@ html, body {
 .logo-icon {
   width: 32px;
   height: 32px;
-  background: var(--grad-purple);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
   box-shadow: 0 0 16px var(--purple-glow);
+}
+
+.logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .logo-icon svg {

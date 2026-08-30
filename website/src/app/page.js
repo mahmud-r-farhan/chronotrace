@@ -211,11 +211,10 @@ export default function Home() {
                   <button
                     key={p}
                     onClick={() => setSelectedPeriod(p)}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                      selectedPeriod === p
-                        ? "bg-gradient-to-r from-purple-500 to-cyan-500 text-white shadow-[0_0_12px_rgba(139,92,246,0.3)]"
-                        : "text-[#9494b8] hover:text-white"
-                    }`}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${selectedPeriod === p
+                      ? "bg-gradient-to-r from-purple-500 to-cyan-500 text-white shadow-[0_0_12px_rgba(139,92,246,0.3)]"
+                      : "text-[#9494b8] hover:text-white"
+                      }`}
                   >
                     {p}
                   </button>
@@ -414,7 +413,7 @@ export default function Home() {
             <div className="text-[#5e5e7a] mb-2"># Fetch today&apos;s screen time in JSON</div>
             <div className="text-emerald-400 mb-4">$ curl http://127.0.0.1:42069/api/v1/usage/today</div>
             <pre className="text-[#9494b8]">
-{`[
+              {`[
   {
     "app_name": "Visual Studio Code",
     "total_seconds": 15480,
@@ -559,7 +558,7 @@ export default function Home() {
               ChronoTrace
             </span>
             <span className="text-xs text-[#5e5e7a]">
-              &copy; 2026 ChronoTrace Contributors. MIT License.
+              &copy; 2026 <a href="https://bengalbytes.com/" target="_blank" rel="noopener noreferrer">Bengal Bytes</a>.
             </span>
           </div>
 
