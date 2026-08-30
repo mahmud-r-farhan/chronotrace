@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 
 export default function Home() {
   const [selectedPeriod, setSelectedPeriod] = useState("today");
   const [copiedCmd, setCopiedCmd] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [userOS, setUserOS] = useState("windows");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
 
   const installCommand = "git clone https://github.com/mahmud-r-farhan/chronotrace.git && cd chronotrace && make daemon";
 
@@ -14,6 +16,63 @@ export default function Home() {
     navigator.clipboard.writeText(installCommand);
     setCopiedCmd(true);
     setTimeout(() => setCopiedCmd(false), 2000);
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const ua = window.navigator.userAgent.toLowerCase();
+      if (ua.includes("mac")) {
+        setUserOS("macos");
+      } else if (ua.includes("linux")) {
+        setUserOS("linux");
+      } else {
+        setUserOS("windows");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const releaseBase = "https://github.com/mahmud-r-farhan/chronotrace/releases/download/v0.1.0";
+  const downloads = {
+    windows: {
+      name: "Windows (x64)",
+      shortName: "Windows",
+      icon: "🪟",
+      filename: "ChronoTrace-Windows-x64-Setup.zip",
+      url: `${releaseBase}/ChronoTrace-Windows-x64-Setup.zip`,
+      badge: "1-Click Setup (.zip)",
+      desc: "Autostart Registry Integration • Zero Terminal Popup",
+      ext: ".zip",
+    },
+    macos: {
+      name: "macOS (Universal)",
+      shortName: "macOS",
+      icon: "🍎",
+      filename: "ChronoTrace-macOS-Universal.zip",
+      url: `${releaseBase}/ChronoTrace-macOS-Universal.zip`,
+      badge: "Apple Silicon & Intel",
+      desc: "Native AppKit Hooks • launchd Background Service",
+      ext: ".zip",
+    },
+    linux: {
+      name: "Linux (x64)",
+      shortName: "Linux",
+      icon: "🐧",
+      filename: "ChronoTrace-Linux-x64.tar.gz",
+      url: `${releaseBase}/ChronoTrace-Linux-x64.tar.gz`,
+      badge: "tar.gz + Systemd Installer",
+      desc: "X11 & Wayland Support • Systemd User Unit",
+      ext: ".tar.gz",
+    },
   };
 
   const appUsageData = {
@@ -40,18 +99,20 @@ export default function Home() {
     ],
   };
 
+  const currentPlatform = downloads[userOS] || downloads.windows;
+
   return (
     <div className="min-h-screen bg-[#09090d] text-[#f5f5fc] selection:bg-purple-500/30 selection:text-purple-200">
       {/* Background Gradients */}
       <div className="fixed inset-0 bg-grid pointer-events-none opacity-40"></div>
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-radial-glow pointer-events-none"></div>
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[550px] bg-radial-glow pointer-events-none"></div>
 
       {/* Navigation */}
       <nav className="sticky top-0 z-50 backdrop-blur-xl bg-[#09090d]/80 border-b border-white/10 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.4)] border border-purple-500/30">
-              <Image src="/logo.png" alt="ChronoTrace Logo" width={40} height={40} className="w-full h-full object-cover" priority />
+            <div className="relative w-9 h-9 rounded-xl overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.4)] border border-purple-500/30">
+              <Image src="/logo.jpg" alt="ChronoTrace Logo" width={36} height={36} className="w-full h-full object-cover" priority />
             </div>
             <div>
               <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-purple-200 to-cyan-300 bg-clip-text text-transparent">
@@ -64,8 +125,8 @@ export default function Home() {
           </div>
 
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-[#9494b8]">
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#demo" className="hover:text-white transition-colors">Interactive Demo</a>
+            <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#architecture" className="hover:text-white transition-colors">Architecture</a>
             <a href="#compare" className="hover:text-white transition-colors">Comparison</a>
             <a href="#api" className="hover:text-white transition-colors">REST API</a>
@@ -85,17 +146,17 @@ export default function Home() {
               <span>GitHub</span>
             </a>
             <a
-              href="#downloads"
-              className="px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-400 hover:to-cyan-400 text-white shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98]"
+              href={currentPlatform.url}
+              className="hidden sm:inline-flex px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-400 hover:to-cyan-400 text-white shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              Download Free
+              Download
             </a>
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-24 pb-20 px-6 max-w-7xl mx-auto text-center">
+      <section className="relative pt-20 pb-16 px-6 max-w-7xl mx-auto text-center">
         {/* Status Pill */}
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 mb-8 backdrop-blur-md">
           <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse"></span>
@@ -103,33 +164,91 @@ export default function Home() {
         </div>
 
         {/* Main Heading */}
-        <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight max-w-4xl mx-auto leading-[1.1] mb-6">
+        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight max-w-4xl mx-auto leading-[1.1] mb-6">
           Track Your Screen Time.{" "}
           <span className="text-gradient">Zero Telemetry.</span>
         </h1>
 
-        <p className="text-lg md:text-xl text-[#9494b8] max-w-2xl mx-auto mb-10 leading-relaxed">
-          ChronoTrace is a privacy-first, cross-platform app usage tracker. A headless background daemon writes silently to your local SQLite database while consuming virtually zero CPU and RAM.
+        <p className="text-base sm:text-lg md:text-xl text-[#9494b8] max-w-2xl mx-auto mb-10 leading-relaxed">
+          ChronoTrace is a privacy-first, cross-platform app usage tracker. A headless background daemon writes silently to your local SQLite database with ~0% CPU and &lt; 15MB RAM.
         </p>
 
-        {/* CTA Buttons */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mb-12">
-          <a
-            href="https://github.com/mahmud-r-farhan/chronotrace/releases"
-            className="flex items-center gap-3 px-8 py-4 rounded-2xl font-semibold text-base bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-500 hover:from-purple-400 hover:to-cyan-400 text-white shadow-[0_0_30px_rgba(139,92,246,0.4)] transition-all hover:scale-105 active:scale-95"
-          >
-            <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-              <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z" />
-            </svg>
-            <span>Download for Windows, Mac &amp; Linux</span>
-          </a>
+        {/* Dynamic OS Download CTA with Split Dropdown */}
+        <div className="relative inline-flex flex-col items-center gap-3 mb-10" ref={dropdownRef}>
+          <div className="inline-flex items-stretch rounded-2xl shadow-[0_0_35px_rgba(139,92,246,0.35)] bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 p-[1px]">
+            {/* Primary Detected OS Action */}
+            <a
+              href={currentPlatform.url}
+              className="flex items-center gap-3 px-6 sm:px-8 py-4 rounded-l-2xl font-semibold text-sm sm:text-base bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-500 hover:from-purple-400 hover:to-cyan-400 text-white transition-all hover:brightness-110 active:scale-[0.99]"
+            >
+              <span className="text-xl">{currentPlatform.icon}</span>
+              <span className="text-left">
+                <span className="block font-bold">Download for {currentPlatform.shortName}</span>
+                <span className="block text-[11px] opacity-80 font-normal">{currentPlatform.badge}</span>
+              </span>
+            </a>
 
-          <a
-            href="#demo"
-            className="px-8 py-4 rounded-2xl font-semibold text-base bg-white/5 hover:bg-white/10 border border-white/10 transition-all hover:scale-105 active:scale-95 text-white"
-          >
-            Explore Interactive Demo &darr;
-          </a>
+            {/* Platform Selector Chevron */}
+            <button
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="px-4 rounded-r-2xl bg-[#0e0e18] hover:bg-[#181828] text-white/80 hover:text-white border-l border-white/10 transition-colors flex items-center justify-center cursor-pointer"
+              title="Select another operating system"
+              aria-label="Select platform"
+            >
+              <svg className={`w-5 h-5 transition-transform duration-200 ${showDropdown ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Dropdown Menu */}
+          {showDropdown && (
+            <div className="absolute top-full mt-3 w-80 rounded-2xl glass border border-white/15 bg-[#12121f]/95 backdrop-blur-2xl shadow-2xl p-2 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-[#5e5e7a] border-b border-white/10">
+                Choose Operating System
+              </div>
+              {Object.entries(downloads).map(([key, item]) => (
+                <a
+                  key={key}
+                  href={item.url}
+                  onClick={() => setShowDropdown(false)}
+                  className={`flex items-center justify-between p-3 rounded-xl transition-all ${
+                    key === userOS ? "bg-purple-500/15 border border-purple-500/30 text-white" : "hover:bg-white/5 text-[#9494b8] hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">{item.icon}</span>
+                    <div>
+                      <div className="font-semibold text-sm text-white flex items-center gap-2">
+                        {item.name}
+                        {key === userOS && <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300">Detected</span>}
+                      </div>
+                      <div className="text-xs text-[#9494b8]">{item.badge}</div>
+                    </div>
+                  </div>
+                  <svg className="w-4 h-4 text-[#5e5e7a]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </a>
+              ))}
+              <div className="pt-2 mt-1 border-t border-white/10">
+                <a
+                  href="https://github.com/mahmud-r-farhan/chronotrace/releases"
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setShowDropdown(false)}
+                  className="flex items-center justify-between p-2.5 rounded-xl hover:bg-white/5 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                >
+                  <span>View All Releases &amp; Standalone Daemons</span>
+                  <span>↗</span>
+                </a>
+              </div>
+            </div>
+          )}
+
+          <div className="text-xs text-[#5e5e7a]">
+            Free &amp; Open Source forever &bull; MIT License &bull; Zero Telemetry
+          </div>
         </div>
 
         {/* Copyable Quick Install */}
@@ -145,340 +264,273 @@ export default function Home() {
         </div>
 
         {/* Live Metrics Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mt-16 text-left">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mt-14 text-left">
           <div className="p-5 rounded-2xl glass">
             <span className="text-xs uppercase font-bold tracking-wider text-purple-400">RAM Consumption</span>
-            <div className="text-3xl font-extrabold text-white mt-1">~2.0 MB</div>
-            <span className="text-xs text-[#5e5e7a]">Measured working set</span>
+            <div className="text-2xl sm:text-3xl font-extrabold text-white mt-1">&lt; 15 MB</div>
+            <span className="text-xs text-[#9494b8]">~2MB typical background idle</span>
           </div>
+
           <div className="p-5 rounded-2xl glass">
-            <span className="text-xs uppercase font-bold tracking-wider text-cyan-400">CPU Usage</span>
-            <div className="text-3xl font-extrabold text-white mt-1">~0.0%</div>
-            <span className="text-xs text-[#5e5e7a]">Jittered 2-3s polling</span>
+            <span className="text-xs uppercase font-bold tracking-wider text-cyan-400">CPU Overhead</span>
+            <div className="text-2xl sm:text-3xl font-extrabold text-white mt-1">~0.0%</div>
+            <span className="text-xs text-[#9494b8]">Jittered OS hook polling</span>
           </div>
+
           <div className="p-5 rounded-2xl glass">
-            <span className="text-xs uppercase font-bold tracking-wider text-emerald-400">Telemetry &amp; Ads</span>
-            <div className="text-3xl font-extrabold text-white mt-1">ZERO</div>
-            <span className="text-xs text-[#5e5e7a]">100% Offline SQLite</span>
+            <span className="text-xs uppercase font-bold tracking-wider text-emerald-400">Privacy Policy</span>
+            <div className="text-2xl sm:text-3xl font-extrabold text-white mt-1">100% Local</div>
+            <span className="text-xs text-[#9494b8]">Zero external HTTP requests</span>
           </div>
+
           <div className="p-5 rounded-2xl glass">
-            <span className="text-xs uppercase font-bold tracking-wider text-amber-400">Architecture</span>
-            <div className="text-3xl font-extrabold text-white mt-1">Decoupled</div>
-            <span className="text-xs text-[#5e5e7a]">Daemon + Optional UI</span>
+            <span className="text-xs uppercase font-bold tracking-wider text-amber-400">Disk Storage</span>
+            <div className="text-2xl sm:text-3xl font-extrabold text-white mt-1">Pure SQLite</div>
+            <span className="text-xs text-[#9494b8]">WAL mode in user directory</span>
           </div>
         </div>
       </section>
 
-      {/* Interactive Mockup Demo Section */}
-      <section id="demo" className="py-20 px-6 max-w-7xl mx-auto">
+      {/* Interactive Demo Section */}
+      <section id="demo" className="py-16 px-6 max-w-7xl mx-auto border-t border-white/10">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4">
-            Interactive Dashboard Preview
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-bold uppercase tracking-wider mb-3 border border-purple-500/20">
+            Interactive Live Preview
+          </div>
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">
+            See ChronoTrace In Action
           </h2>
-          <p className="text-[#9494b8] max-w-xl mx-auto">
-            Experience the responsive Wails desktop UI running locally on your device.
+          <p className="text-[#9494b8] max-w-xl mx-auto text-sm sm:text-base">
+            This dashboard runs locally on your machine via Wails v2 without continuous memory footprint.
           </p>
         </div>
 
-        {/* Window Container */}
-        <div className="rounded-3xl glass border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden max-w-5xl mx-auto">
-          {/* Window Title Bar */}
-          <div className="bg-[#12121a] px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-rose-500/80"></span>
-              <span className="w-3 h-3 rounded-full bg-amber-500/80"></span>
-              <span className="w-3 h-3 rounded-full bg-emerald-500/80"></span>
-              <span className="ml-3 text-xs font-mono text-[#5e5e7a]">ChronoTrace — Local Desktop Client</span>
+        {/* Dashboard Frame Container */}
+        <div className="rounded-3xl glass border border-white/10 p-6 md:p-8 max-w-5xl mx-auto shadow-2xl">
+          {/* Header Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 border-b border-white/10 pb-6">
+            <div>
+              <h3 className="text-xl font-bold text-white">Application Usage Summary</h3>
+              <p className="text-xs text-[#9494b8] mt-1">Aggregated window active time &bull; 127.0.0.1:42069</p>
             </div>
-            <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-              <span>Daemon Connected (127.0.0.1:42069)</span>
-            </div>
-          </div>
 
-          {/* Window Body */}
-          <div className="p-6 md:p-8 bg-[#0d0d12]">
-            {/* Dashboard Header */}
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-6 border-b border-white/10">
-              <div>
-                <h3 className="text-2xl font-bold text-white">Daily Screen Time Summary</h3>
-                <p className="text-xs text-[#5e5e7a] mt-1">Auto-aggregated from local SQLite database</p>
-              </div>
-
-              {/* Time Period Tabs */}
-              <div className="flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
-                {["today", "week", "month"].map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setSelectedPeriod(p)}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${selectedPeriod === p
-                      ? "bg-gradient-to-r from-purple-500 to-cyan-500 text-white shadow-[0_0_12px_rgba(139,92,246,0.3)]"
+            {/* Time Filter Tabs */}
+            <div className="flex items-center gap-1 bg-[#0e0e17] p-1.5 rounded-xl border border-white/10">
+              {["today", "week", "month"].map((period) => (
+                <button
+                  key={period}
+                  onClick={() => setSelectedPeriod(period)}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                    selectedPeriod === period
+                      ? "bg-purple-500 text-white shadow-[0_0_12px_rgba(139,92,246,0.4)]"
                       : "text-[#9494b8] hover:text-white"
-                      }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Stats Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-              <div className="p-5 rounded-2xl bg-white/5 border border-white/5">
-                <span className="text-xs text-[#9494b8] uppercase font-bold tracking-wider">Total Active Time</span>
-                <div className="text-2xl font-bold text-white mt-1">
-                  {selectedPeriod === "today" ? "9h 22m" : selectedPeriod === "week" ? "62h 10m" : "244h 30m"}
-                </div>
-              </div>
-              <div className="p-5 rounded-2xl bg-white/5 border border-white/5">
-                <span className="text-xs text-[#9494b8] uppercase font-bold tracking-wider">Top Focused Application</span>
-                <div className="text-2xl font-bold text-purple-400 mt-1">Visual Studio Code</div>
-              </div>
-              <div className="p-5 rounded-2xl bg-white/5 border border-white/5">
-                <span className="text-xs text-[#9494b8] uppercase font-bold tracking-wider">Tracked Applications</span>
-                <div className="text-2xl font-bold text-cyan-400 mt-1">
-                  {selectedPeriod === "today" ? "14 Apps" : selectedPeriod === "week" ? "38 Apps" : "64 Apps"}
-                </div>
-              </div>
-            </div>
-
-            {/* App Usage Bars */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-xs font-bold text-[#5e5e7a] uppercase tracking-wider px-2">
-                <span>Application Name</span>
-                <span>Time Spent</span>
-              </div>
-
-              {appUsageData[selectedPeriod].map((app, idx) => (
-                <div key={idx} className="p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono font-bold text-[#5e5e7a]">#{idx + 1}</span>
-                      <span className="font-semibold text-sm text-white">{app.name}</span>
-                      <span className="text-[10px] text-[#5e5e7a]">({app.sessions} sessions)</span>
-                    </div>
-                    <span className="text-sm font-mono font-bold text-purple-300">{app.duration}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full bg-gradient-to-r ${app.color} transition-all duration-700`}
-                      style={{ width: `${app.pct}%` }}
-                    ></div>
-                  </div>
-                </div>
+                  }`}
+                >
+                  {period}
+                </button>
               ))}
             </div>
           </div>
+
+          {/* Usage Chart Horizontal Bars */}
+          <div className="space-y-4 mb-10">
+            {appUsageData[selectedPeriod].map((app) => (
+              <div key={app.name} className="p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/15 transition-all">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold text-white">{app.name}</span>
+                    <span className="text-xs text-[#5e5e7a]">{app.sessions} sessions</span>
+                  </div>
+                  <span className="font-mono text-xs font-bold text-purple-300">{app.duration}</span>
+                </div>
+                <div className="w-full h-2.5 rounded-full bg-white/5 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full bg-gradient-to-r ${app.color} transition-all duration-700`}
+                    style={{ width: `${app.pct}%` }}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Hourly Heatmap Preview */}
+          <div>
+            <h4 className="text-xs uppercase font-bold tracking-wider text-[#9494b8] mb-3">
+              Hourly Activity Heatmap (24-Hour Timeline)
+            </h4>
+            <div className="grid grid-cols-12 gap-2 text-center">
+              {Array.from({ length: 24 }).map((_, i) => {
+                const active = i >= 8 && i <= 20;
+                const opacity = active ? 0.3 + (i % 5) * 0.15 : 0.05;
+                return (
+                  <div key={i} className="flex flex-col items-center gap-1.5">
+                    <div
+                      className="w-full aspect-square rounded-lg border border-white/10 transition-all hover:scale-110"
+                      style={{
+                        backgroundColor: `rgba(139, 92, 246, ${opacity})`,
+                        boxShadow: active ? "0 0 10px rgba(139, 92, 246, 0.2)" : "none",
+                      }}
+                      title={`${i}:00 — ${active ? (i % 4) + 1 + "h active" : "Idle"}`}
+                    ></div>
+                    <span className="text-[10px] font-mono text-[#5e5e7a]">{i}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Feature Highlights Grid */}
+      {/* Features Grid */}
       <section id="features" className="py-20 px-6 max-w-7xl mx-auto border-t border-white/10">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4">
-            Engineered for Precision &amp; Silence
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">
+            Why ChronoTrace?
           </h2>
-          <p className="text-[#9494b8] max-w-2xl mx-auto">
-            Unlike bloated telemetry tools that consume hundreds of megabytes of RAM and upload your private window titles to third-party clouds, ChronoTrace stays 100% on your device.
+          <p className="text-[#9494b8] max-w-xl mx-auto text-sm sm:text-base">
+            Built for developers, professionals, and students who care about their device performance and privacy.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="p-8 rounded-3xl glass hover:border-purple-500/30 transition-all group">
-            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-6 group-hover:scale-110 transition-transform">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold mb-2 text-white">Ultra-Low Resource Daemon</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-8 rounded-3xl glass border border-white/10 hover:border-purple-500/40 transition-all hover:-translate-y-1">
+            <div className="text-3xl mb-4">⚡</div>
+            <h3 className="text-xl font-bold text-white mb-2">Zero CGO &bull; Tiny Binary</h3>
             <p className="text-sm text-[#9494b8] leading-relaxed">
-              Consuming &lt; 15MB RAM and ~0% CPU, the background service polls your active window using native Win32/AppKit/X11 hooks every 2–3s and flushes batch writes to SQLite.
+              Compiled into pure native Go binaries with no CGO dependencies. Consumes under 15MB RAM and 0% CPU at idle.
             </p>
           </div>
 
-          <div className="p-8 rounded-3xl glass hover:border-cyan-500/30 transition-all group">
-            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-6 group-hover:scale-110 transition-transform">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold mb-2 text-white">100% Private &amp; Offline</h3>
+          <div className="p-8 rounded-3xl glass border border-white/10 hover:border-cyan-500/40 transition-all hover:-translate-y-1">
+            <div className="text-3xl mb-4">🔒</div>
+            <h3 className="text-xl font-bold text-white mb-2">100% Offline &amp; Private</h3>
             <p className="text-sm text-[#9494b8] leading-relaxed">
-              Zero cloud accounts. Zero tracking pixels. Zero telemetry. All window titles and timestamps reside strictly in an encrypted-capable local SQLite file in your OS user directory.
+              No cloud accounts, no tracking scripts, and no telemetry. Your logs remain on your disk in a local SQLite file.
             </p>
           </div>
 
-          <div className="p-8 rounded-3xl glass hover:border-emerald-500/30 transition-all group">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-6 group-hover:scale-110 transition-transform">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold mb-2 text-white">Decoupled Architecture</h3>
+          <div className="p-8 rounded-3xl glass border border-white/10 hover:border-emerald-500/40 transition-all hover:-translate-y-1">
+            <div className="text-3xl mb-4">🔌</div>
+            <h3 className="text-xl font-bold text-white mb-2">Local REST API</h3>
             <p className="text-sm text-[#9494b8] leading-relaxed">
-              The daemon auto-starts on login and runs silently in the background. The rich Wails GUI only starts when you open it — closing the window stops the UI while tracking never skips a beat.
+              Query your data anytime on <code>http://127.0.0.1:42069</code> with curl, Python, or automated scripts.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* Architecture Section */}
+      <section id="architecture" className="py-20 px-6 max-w-7xl mx-auto border-t border-white/10">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">
+            Decoupled Architecture
+          </h2>
+          <p className="text-[#9494b8] max-w-xl mx-auto text-sm sm:text-base">
+            The daemon runs quietly in the background. The desktop dashboard is only opened when you want to view reports.
+          </p>
+        </div>
+
+        <div className="p-8 rounded-3xl glass border border-white/10 max-w-4xl mx-auto font-mono text-xs sm:text-sm text-[#9494b8] overflow-x-auto">
+          <pre className="text-center leading-loose">
+{`┌──────────────────────────────────────┐        ┌──────────────────────────────────────┐
+│       Headless Background Daemon     │  ───►  │           Local SQLite DB            │
+│         (Under 15MB RAM, 0% CPU)     │        │      (~/.local/share, %APPDATA%)     │
+└──────────────────────────────────────┘        └──────────────────┬───────────────────┘
+                    ▲                                              │
+                    │ (Auto-Spawns / OS Start)                     ▼
+┌──────────────────────────────────────┐        ┌──────────────────────────────────────┐
+│        ChronoTrace GUI (Wails)       │  ◄───  │           Local REST API             │
+│        (Optional Desktop Window)     │        │         (127.0.0.1:42069)            │
+└──────────────────────────────────────┘        └──────────────────────────────────────┘`}
+          </pre>
         </div>
       </section>
 
       {/* Comparison Table */}
-      <section id="compare" className="py-20 px-6 max-w-7xl mx-auto border-t border-white/10">
+      <section id="compare" className="py-20 px-6 max-w-5xl mx-auto border-t border-white/10">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4">
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">
             How ChronoTrace Compares
           </h2>
-          <p className="text-[#9494b8] max-w-xl mx-auto">
-            Built with pure Go and zero CGO dependencies for instant cross-platform efficiency.
-          </p>
         </div>
 
-        <div className="rounded-3xl glass border border-white/10 overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-white/10 bg-white/[0.02]">
-                <th className="p-5 font-bold text-[#f5f5fc]">Feature</th>
-                <th className="p-5 font-bold text-purple-400">ChronoTrace</th>
-                <th className="p-5 font-bold text-[#9494b8]">ActivityWatch</th>
-                <th className="p-5 font-bold text-[#9494b8]">RescueTime</th>
+        <div className="overflow-x-auto rounded-2xl glass border border-white/10">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-white/10 bg-white/5">
+              <tr>
+                <th className="p-4 font-bold text-white">Feature</th>
+                <th className="p-4 font-bold text-purple-400">ChronoTrace</th>
+                <th className="p-4 font-medium text-[#9494b8]">ActivityWatch</th>
+                <th className="p-4 font-medium text-[#9494b8]">RescueTime</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-white/5 text-xs sm:text-sm">
               <tr>
-                <td className="p-5 font-medium text-white">Background RAM Footprint</td>
-                <td className="p-5 font-bold text-emerald-400">&lt; 15 MB (Measured ~2MB)</td>
-                <td className="p-5 text-[#9494b8]">100 MB – 250 MB (Python)</td>
-                <td className="p-5 text-[#9494b8]">80 MB – 180 MB</td>
+                <td className="p-4 font-medium text-white">RAM Usage</td>
+                <td className="p-4 font-bold text-emerald-400">&lt; 15 MB</td>
+                <td className="p-4 text-[#9494b8]">100–250 MB</td>
+                <td className="p-4 text-[#9494b8]">80–180 MB</td>
               </tr>
               <tr>
-                <td className="p-5 font-medium text-white">Privacy &amp; Data Ownership</td>
-                <td className="p-5 font-bold text-emerald-400">100% Local SQLite (Zero Telemetry)</td>
-                <td className="p-5 text-emerald-400">100% Local</td>
-                <td className="p-5 text-rose-400">Cloud Required (Uploads Data)</td>
+                <td className="p-4 font-medium text-white">Telemetry &amp; Privacy</td>
+                <td className="p-4 font-bold text-emerald-400">0% Telemetry (100% Local)</td>
+                <td className="p-4 text-[#9494b8]">Local first</td>
+                <td className="p-4 text-red-400">Cloud dependent</td>
               </tr>
               <tr>
-                <td className="p-5 font-medium text-white">Decoupled Headless Daemon</td>
-                <td className="p-5 font-bold text-emerald-400">Yes (Optional UI)</td>
-                <td className="p-5 text-[#9494b8]">Partial (Multi-process)</td>
-                <td className="p-5 text-[#9494b8]">Tray process</td>
+                <td className="p-4 font-medium text-white">Headless Tracking</td>
+                <td className="p-4 font-bold text-emerald-400">Yes (Daemon only)</td>
+                <td className="p-4 text-[#9494b8]">Requires multiple processes</td>
+                <td className="p-4 text-[#9494b8]">No</td>
               </tr>
               <tr>
-                <td className="p-5 font-medium text-white">Cross-Platform Builds</td>
-                <td className="p-5 font-bold text-emerald-400">Pure Go (Zero CGO)</td>
-                <td className="p-5 text-[#9494b8]">Rust / Python</td>
-                <td className="p-5 text-[#9494b8]">Proprietary</td>
-              </tr>
-              <tr>
-                <td className="p-5 font-medium text-white">Local REST API Access</td>
-                <td className="p-5 font-bold text-emerald-400">Yes (127.0.0.1:42069)</td>
-                <td className="p-5 text-[#9494b8]">Yes (Port 5600)</td>
-                <td className="p-5 text-rose-400">No</td>
+                <td className="p-4 font-medium text-white">Local REST API</td>
+                <td className="p-4 font-bold text-emerald-400">Yes (127.0.0.1:42069)</td>
+                <td className="p-4 text-[#9494b8]">Yes</td>
+                <td className="p-4 text-red-400">No</td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      {/* REST API & Developer Integration */}
-      <section id="api" className="py-20 px-6 max-w-7xl mx-auto border-t border-white/10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 text-xs font-bold uppercase tracking-wider mb-4 border border-cyan-500/20">
-              Developer First
-            </div>
-            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4">
-              Local REST API for Custom Dashboards &amp; Automations
-            </h2>
-            <p className="text-[#9494b8] text-base mb-6 leading-relaxed">
-              Every ChronoTrace daemon serves a fast JSON API on localhost. Build custom scripts, query your activity from your terminal, integrate with home automations, or export your logs.
-            </p>
-            <ul className="space-y-3 text-sm text-[#9494b8]">
-              <li className="flex items-center gap-2">
-                <span className="text-cyan-400 font-bold">&bull;</span>
-                <code>GET /api/v1/status</code> &mdash; Daemon health &amp; uptime
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-cyan-400 font-bold">&bull;</span>
-                <code>GET /api/v1/usage/today</code> &mdash; Today&apos;s aggregated app time
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-cyan-400 font-bold">&bull;</span>
-                <code>GET /api/v1/usage/timeline</code> &mdash; Hourly activity heatmap
-              </li>
-            </ul>
-          </div>
-
-          {/* Code Box */}
-          <div className="rounded-2xl glass p-6 font-mono text-xs text-purple-200 border border-white/10 shadow-2xl overflow-x-auto">
-            <div className="text-[#5e5e7a] mb-2"># Fetch today&apos;s screen time in JSON</div>
-            <div className="text-emerald-400 mb-4">$ curl http://127.0.0.1:42069/api/v1/usage/today</div>
-            <pre className="text-[#9494b8]">
-              {`[
-  {
-    "app_name": "Visual Studio Code",
-    "total_seconds": 15480,
-    "session_count": 24,
-    "formatted_time": "4h 18m"
-  },
-  {
-    "app_name": "Google Chrome",
-    "total_seconds": 9900,
-    "session_count": 42,
-    "formatted_time": "2h 45m"
-  }
-]`}
-            </pre>
-          </div>
-        </div>
-      </section>
-
-      {/* Frequently Asked Questions (FAQ) — Rich Snippet & SEO Optimized */}
+      {/* Frequently Asked Questions (FAQ) */}
       <section id="faq" className="py-20 px-6 max-w-5xl mx-auto border-t border-white/10">
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-bold uppercase tracking-wider mb-4 border border-purple-500/20">
             Got Questions?
           </div>
-          <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4">
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">
             Frequently Asked Questions
           </h2>
-          <p className="text-[#9494b8] max-w-xl mx-auto">
-            Everything you need to know about ChronoTrace&apos;s privacy, low RAM footprint, and local architecture.
-          </p>
         </div>
 
         <div className="space-y-4">
           <div className="p-6 rounded-2xl glass border border-white/10 hover:border-purple-500/30 transition-colors">
-            <h3 className="text-lg font-bold text-white mb-2">How does ChronoTrace achieve &lt; 15MB RAM and ~0% CPU?</h3>
+            <h3 className="text-base sm:text-lg font-bold text-white mb-2">How does ChronoTrace achieve &lt; 15MB RAM and ~0% CPU?</h3>
             <p className="text-sm text-[#9494b8] leading-relaxed">
-              Unlike bloated Electron or Python alternatives, ChronoTrace&apos;s background daemon is compiled into a lightweight native Go binary with pure Go SQLite (zero CGO). It uses jittered 2–3 second OS foreground window hooks and in-memory batching that flushes to disk only every 45 seconds, eliminating continuous CPU wakeups and disk thrashing.
+              Unlike bloated Electron or Python alternatives, ChronoTrace&apos;s background daemon is compiled into a lightweight native Go binary with pure Go SQLite (zero CGO). It uses jittered 2–3 second OS foreground window hooks and in-memory batching that flushes to disk only every 45 seconds.
             </p>
           </div>
 
           <div className="p-6 rounded-2xl glass border border-white/10 hover:border-purple-500/30 transition-colors">
-            <h3 className="text-lg font-bold text-white mb-2">Does ChronoTrace send any data to external servers or the cloud?</h3>
+            <h3 className="text-base sm:text-lg font-bold text-white mb-2">Does ChronoTrace send any data to external servers or the cloud?</h3>
             <p className="text-sm text-[#9494b8] leading-relaxed">
-              Never. ChronoTrace has zero telemetry, zero analytics scripts, and zero cloud accounts. All recorded data stays strictly on your machine in a local SQLite file stored in your operating system&apos;s standard user application directory.
+              Never. ChronoTrace has zero telemetry, zero analytics scripts, and zero cloud accounts. All recorded data stays strictly on your machine in a local SQLite file stored in your operating system&apos;s user directory.
             </p>
           </div>
 
           <div className="p-6 rounded-2xl glass border border-white/10 hover:border-purple-500/30 transition-colors">
-            <h3 className="text-lg font-bold text-white mb-2">How does the decoupled architecture work?</h3>
+            <h3 className="text-base sm:text-lg font-bold text-white mb-2">How does the 1-Click install work?</h3>
             <p className="text-sm text-[#9494b8] leading-relaxed">
-              The daemon and the desktop UI are two distinct binaries. The daemon starts with your operating system and runs silently in the background. You only launch the graphical UI when you want to view analytics. When you close the window, the GUI process completely terminates while the background tracker continues running without missing a second.
+              Download the package for Windows, Linux, or macOS. Extract the zip file and run the installer script (`install-windows.bat`, `install-linux.sh`, or `install-macos.sh`). It copies the files, registers the background daemon in your OS autostart on boot, and opens the GUI.
             </p>
           </div>
 
           <div className="p-6 rounded-2xl glass border border-white/10 hover:border-purple-500/30 transition-colors">
-            <h3 className="text-lg font-bold text-white mb-2">Can I query the data programmatically with scripts or home automations?</h3>
+            <h3 className="text-base sm:text-lg font-bold text-white mb-2">Can I query the data programmatically with scripts?</h3>
             <p className="text-sm text-[#9494b8] leading-relaxed">
-              Yes! Every running ChronoTrace daemon exposes a local JSON REST API on <code>http://127.0.0.1:42069</code>. You can query your hourly timelines, daily summaries, and per-app usage directly using curl, Python, or shell scripts.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl glass border border-white/10 hover:border-purple-500/30 transition-colors">
-            <h3 className="text-lg font-bold text-white mb-2">Is ChronoTrace free and open-source?</h3>
-            <p className="text-sm text-[#9494b8] leading-relaxed">
-              Yes! ChronoTrace is licensed under the permissive MIT license and completely open-source on GitHub at <code>https://github.com/mahmud-r-farhan/chronotrace</code>.
+              Yes! The daemon exposes a local JSON REST API on <code>http://127.0.0.1:42069</code>. You can query your hourly timelines, daily summaries, and per-app usage directly using curl or Python.
             </p>
           </div>
         </div>
@@ -486,11 +538,11 @@ export default function Home() {
 
       {/* Downloads / Release Section */}
       <section id="downloads" className="py-20 px-6 max-w-7xl mx-auto border-t border-white/10 text-center">
-        <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4">
-          Get ChronoTrace Today
+        <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">
+          Download ChronoTrace v0.1.0
         </h2>
-        <p className="text-[#9494b8] max-w-xl mx-auto mb-12">
-          Free and open-source forever. Download standalone single-binary releases for your platform.
+        <p className="text-[#9494b8] max-w-xl mx-auto mb-12 text-sm sm:text-base">
+          Free and open-source forever. Download 1-click packages with full autostart support for your platform.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto text-left">
@@ -500,14 +552,14 @@ export default function Home() {
               <div className="text-2xl mb-2">🪟</div>
               <h3 className="text-lg font-bold text-white">Windows (x64)</h3>
               <p className="text-xs text-[#9494b8] mt-1 mb-4">
-                Headless background tracker &bull; HKCU Autostart registry integration
+                1-Click Setup &bull; HKCU Autostart Registry &bull; Zero popup
               </p>
             </div>
             <a
-              href="https://github.com/mahmud-r-farhan/chronotrace/releases"
-              className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-center text-xs font-semibold text-white transition-colors"
+              href={downloads.windows.url}
+              className="w-full py-3 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-center text-xs font-semibold text-white transition-colors"
             >
-              Download .exe
+              Download Windows .zip
             </a>
           </div>
 
@@ -515,16 +567,16 @@ export default function Home() {
           <div className="p-6 rounded-2xl glass hover:border-purple-500/40 transition-all flex flex-col justify-between">
             <div>
               <div className="text-2xl mb-2">🍎</div>
-              <h3 className="text-lg font-bold text-white">macOS (Apple Silicon &amp; Intel)</h3>
+              <h3 className="text-lg font-bold text-white">macOS (Universal)</h3>
               <p className="text-xs text-[#9494b8] mt-1 mb-4">
-                Native AppKit hooks &bull; launchd LaunchAgent autostart
+                Apple Silicon &amp; Intel &bull; Native launchd LaunchAgent
               </p>
             </div>
             <a
-              href="https://github.com/mahmud-r-farhan/chronotrace/releases"
-              className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-center text-xs font-semibold text-white transition-colors"
+              href={downloads.macos.url}
+              className="w-full py-3 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-center text-xs font-semibold text-white transition-colors"
             >
-              Download .zip
+              Download macOS .zip
             </a>
           </div>
 
@@ -532,16 +584,16 @@ export default function Home() {
           <div className="p-6 rounded-2xl glass hover:border-purple-500/40 transition-all flex flex-col justify-between">
             <div>
               <div className="text-2xl mb-2">🐧</div>
-              <h3 className="text-lg font-bold text-white">Linux (x64 &amp; arm64)</h3>
+              <h3 className="text-lg font-bold text-white">Linux (x64)</h3>
               <p className="text-xs text-[#9494b8] mt-1 mb-4">
-                X11 &amp; Wayland support &bull; systemd user service integration
+                X11 &amp; Wayland &bull; Systemd user service installer
               </p>
             </div>
             <a
-              href="https://github.com/mahmud-r-farhan/chronotrace/releases"
-              className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-center text-xs font-semibold text-white transition-colors"
+              href={downloads.linux.url}
+              className="w-full py-3 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-center text-xs font-semibold text-white transition-colors"
             >
-              Download Binary
+              Download Linux .tar.gz
             </a>
           </div>
         </div>
@@ -552,20 +604,21 @@ export default function Home() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <div className="relative w-7 h-7 rounded-lg overflow-hidden border border-purple-500/30">
-              <Image src="/logo.png" alt="ChronoTrace Logo" width={28} height={28} className="w-full h-full object-cover" />
+              <Image src="/logo.jpg" alt="ChronoTrace Logo" width={28} height={28} className="w-full h-full object-cover" />
             </div>
             <span className="font-bold text-sm bg-gradient-to-r from-white to-purple-300 bg-clip-text text-transparent">
               ChronoTrace
             </span>
             <span className="text-xs text-[#5e5e7a]">
-              &copy; 2026 <a href="https://bengalbytes.com/" target="_blank" rel="noopener noreferrer">Bengal Bytes</a>.
+              &copy; 2026 ChronoTrace Contributors. MIT License.
             </span>
           </div>
 
           <div className="flex items-center gap-6 text-xs text-[#9494b8]">
-            <a href="https://github.com/mahmud-r-farhan/chronotrace" className="hover:text-white transition-colors">GitHub Repository</a>
+            <a href="https://github.com/mahmud-r-farhan/chronotrace" className="hover:text-white transition-colors">GitHub</a>
             <a href="https://github.com/mahmud-r-farhan/chronotrace/blob/main/LICENSE" className="hover:text-white transition-colors">MIT License</a>
             <a href="https://github.com/mahmud-r-farhan/chronotrace/releases" className="hover:text-white transition-colors">Releases</a>
+            <a href="/llms.txt" className="hover:text-white transition-colors">llms.txt</a>
           </div>
         </div>
       </footer>
