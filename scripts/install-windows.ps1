@@ -29,6 +29,8 @@ $candidateGuis = @(
 )
 $candidateIcons = @(
     (Join-Path $scriptDir "icon.ico"),
+    (Join-Path $scriptDir "..\assets\icons\icon.ico"),
+    (Join-Path (Get-Location) "assets\icons\icon.ico"),
     (Join-Path $scriptDir "..\gui\build\windows\icon.ico"),
     (Join-Path (Get-Location) "gui\build\windows\icon.ico")
 )

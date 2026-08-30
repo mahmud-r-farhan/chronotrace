@@ -1,6 +1,6 @@
-# Binaries
-build/
-bin/
+# Binaries (Root only)
+/build/
+/bin/
 *.exe
 *.out
 *.test
@@ -21,7 +21,6 @@ package-lock.json
 vendor/
 go.work.sum
 
-
 # OS
 .DS_Store
 Thumbs.db
@@ -34,7 +33,7 @@ desktop.ini
 *.swo
 *~
 
-# Logs
+# Logs & Runtime
 *.log
 *.pid
 *.lock
