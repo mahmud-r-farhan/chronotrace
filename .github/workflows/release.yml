@@ -3,7 +3,13 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v0.1.0)'
+        required: true
+        default: 'v0.1.0'
 
 permissions:
   contents: write
@@ -44,9 +50,10 @@ jobs:
           GOOS:        ${{ matrix.goos }}
           GOARCH:      ${{ matrix.goarch }}
           CGO_ENABLED: 0
+          VER:         ${{ github.event.inputs.version || github.ref_name }}
         run: |
           mkdir -p build
-          LDFLAGS="-s -w -X main.version=${{ github.ref_name }}"
+          LDFLAGS="-s -w -X main.version=$VER"
           if [ "${{ matrix.goos }}" = "windows" ]; then
             LDFLAGS="$LDFLAGS -H windowsgui"
           fi
@@ -84,13 +91,17 @@ jobs:
 
       - name: Build Windows GUI Binary
         working-directory: gui
+        env:
+          VER: ${{ github.event.inputs.version || github.ref_name }}
         run: |
-          go build -tags "desktop,production" -ldflags="-s -w -H windowsgui -X main.version=${{ github.ref_name }}" -o ../build/ChronoTrace.exe .
+          go build -tags "desktop,production" -ldflags="-s -w -H windowsgui -X main.version=$env:VER" -o ../build/ChronoTrace.exe .
 
       - name: Build Windows Daemon
         working-directory: daemon
+        env:
+          VER: ${{ github.event.inputs.version || github.ref_name }}
         run: |
-          go build -ldflags="-s -w -H windowsgui -X main.version=${{ github.ref_name }}" -o ../build/chronotrace-daemon.exe ./cmd/chronotrace-daemon
+          go build -ldflags="-s -w -H windowsgui -X main.version=$env:VER" -o ../build/chronotrace-daemon.exe ./cmd/chronotrace-daemon
 
       - name: Package Windows 1-Click Bundle
         run: |
@@ -136,13 +147,17 @@ jobs:
 
       - name: Build Linux GUI Binary
         working-directory: gui
+        env:
+          VER: ${{ github.event.inputs.version || github.ref_name }}
         run: |
-          go build -tags "desktop,production" -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o ../build/ChronoTrace .
+          go build -tags "desktop,production" -ldflags="-s -w -X main.version=$VER" -o ../build/ChronoTrace .
 
       - name: Build Linux Daemon
         working-directory: daemon
+        env:
+          VER: ${{ github.event.inputs.version || github.ref_name }}
         run: |
-          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o ../build/chronotrace-daemon ./cmd/chronotrace-daemon
+          go build -ldflags="-s -w -X main.version=$VER" -o ../build/chronotrace-daemon ./cmd/chronotrace-daemon
 
       - name: Package Linux Bundle
         run: |
@@ -182,13 +197,17 @@ jobs:
 
       - name: Build macOS Daemon
         working-directory: daemon
+        env:
+          VER: ${{ github.event.inputs.version || github.ref_name }}
         run: |
-          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o ../build/chronotrace-daemon ./cmd/chronotrace-daemon
+          go build -ldflags="-s -w -X main.version=$VER" -o ../build/chronotrace-daemon ./cmd/chronotrace-daemon
 
       - name: Build macOS GUI
         working-directory: gui
+        env:
+          VER: ${{ github.event.inputs.version || github.ref_name }}
         run: |
-          go build -tags "desktop,production" -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o ../build/ChronoTrace .
+          go build -tags "desktop,production" -ldflags="-s -w -X main.version=$VER" -o ../build/ChronoTrace .
 
       - name: Package macOS Bundle
         run: |
@@ -234,17 +253,27 @@ jobs:
           echo "$CHANGES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Set Release Tag Name
+        id: release_meta
+        run: |
+          VER="${{ github.event.inputs.version || github.ref_name }}"
+          if [ -z "$VER" ] || [ "$VER" = "main" ]; then
+            VER="v0.1.0"
+          fi
+          echo "VER=$VER" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "ChronoTrace ${{ github.ref_name }}"
+          tag_name: ${{ steps.release_meta.outputs.VER }}
+          name: "ChronoTrace ${{ steps.release_meta.outputs.VER }}"
           body: |
-            ## ChronoTrace ${{ github.ref_name }} — Privacy-First Screen Time Tracker
+            ## ChronoTrace ${{ steps.release_meta.outputs.VER }} — Privacy-First Screen Time Tracker
 
             ### ✨ 1-Click Install Packages (Recommended)
-            - **🪟 Windows (x64)**: [`ChronoTrace-Windows-x64-Setup.zip`](https://github.com/mahmud-r-farhan/chronotrace/releases/download/${{ github.ref_name }}/ChronoTrace-Windows-x64-Setup.zip) — Extract and double-click `install-windows.bat`.
-            - **🐧 Linux (x64)**: [`ChronoTrace-Linux-x64.tar.gz`](https://github.com/mahmud-r-farhan/chronotrace/releases/download/${{ github.ref_name }}/ChronoTrace-Linux-x64.tar.gz) — Extract and run `./install-linux.sh`.
-            - **🍎 macOS (Universal)**: [`ChronoTrace-macOS-Universal.zip`](https://github.com/mahmud-r-farhan/chronotrace/releases/download/${{ github.ref_name }}/ChronoTrace-macOS-Universal.zip) — Extract and run `./install-macos.sh`.
+            - **🪟 Windows (x64)**: [`ChronoTrace-Windows-x64-Setup.zip`](https://github.com/mahmud-r-farhan/chronotrace/releases/download/${{ steps.release_meta.outputs.VER }}/ChronoTrace-Windows-x64-Setup.zip) — Extract and double-click `install-windows.bat`.
+            - **🐧 Linux (x64)**: [`ChronoTrace-Linux-x64.tar.gz`](https://github.com/mahmud-r-farhan/chronotrace/releases/download/${{ steps.release_meta.outputs.VER }}/ChronoTrace-Linux-x64.tar.gz) — Extract and run `./install-linux.sh`.
+            - **🍎 macOS (Universal)**: [`ChronoTrace-macOS-Universal.zip`](https://github.com/mahmud-r-farhan/chronotrace/releases/download/${{ steps.release_meta.outputs.VER }}/ChronoTrace-macOS-Universal.zip) — Extract and run `./install-macos.sh`.
 
             ### 📦 Standalone Headless Daemon Binaries
             - `chronotrace-daemon-windows-amd64.exe`
@@ -261,4 +290,4 @@ jobs:
             ⚡ **Resource Benchmark**: Under **15MB RAM** & **~0% CPU**.
           files: release-assets/**/*
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: false
