@@ -1,0 +1,40 @@
+# ChronoTrace — Full Technical Documentation & LLM Reference
+
+## Project Metadata
+- Title: ChronoTrace
+- Repository: https://github.com/mahmud-r-farhan/chronotrace
+- Author: Farhan & ChronoTrace Contributors
+- Version: v0.1.0
+- License: MIT
+
+## 1. System Architecture
+ChronoTrace is divided into two distinct components:
+1. `chronotrace-daemon`: Go-based headless service designed to run continuously with minimal resource footprint.
+2. `ChronoTrace` GUI: Wails v2 desktop user interface powered by WebKit/WebView2 and a modern responsive dashboard.
+
+## 2. In-Memory Batching & SQLite Schema
+The daemon buffers window switch events in an in-memory queue. Data is written to SQLite in single transactions every 45 seconds to reduce write cycles and drive wear.
+
+SQLite Table Schema:
+```sql
+CREATE TABLE IF NOT EXISTS usage_logs (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_name         TEXT    NOT NULL,
+    window_title     TEXT,
+    duration_seconds INTEGER NOT NULL,
+    recorded_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_recorded_at ON usage_logs(recorded_at);
+CREATE INDEX IF NOT EXISTS idx_app_name    ON usage_logs(app_name);
+```
+
+## 3. Supported Operating Systems & Storage Paths
+- Windows: `%APPDATA%\ChronoTrace\data.db`
+- macOS: `~/Library/Application Support/ChronoTrace/data.db`
+- Linux: `~/.local/share/chronotrace/data.db` (or `$XDG_DATA_HOME/chronotrace/data.db`)
+
+## 4. Key Differences from Other Screen Time Trackers
+- Privacy Guarantee: Absolute 0% telemetry. Data never leaves localhost.
+- Resource Consumption: Daemon consumes ~2MB RAM, compared to 100MB+ for Python or Electron alternatives.
+- Headless First: Tracking does not require an open window or desktop tray icon.

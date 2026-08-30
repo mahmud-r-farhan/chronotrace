@@ -69,6 +69,7 @@ export default function Home() {
             <a href="#architecture" className="hover:text-white transition-colors">Architecture</a>
             <a href="#compare" className="hover:text-white transition-colors">Comparison</a>
             <a href="#api" className="hover:text-white transition-colors">REST API</a>
+            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
           </div>
 
           <div className="flex items-center gap-3">
@@ -428,6 +429,58 @@ export default function Home() {
   }
 ]`}
             </pre>
+          </div>
+        </div>
+      </section>
+
+      {/* Frequently Asked Questions (FAQ) — Rich Snippet & SEO Optimized */}
+      <section id="faq" className="py-20 px-6 max-w-5xl mx-auto border-t border-white/10">
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-bold uppercase tracking-wider mb-4 border border-purple-500/20">
+            Got Questions?
+          </div>
+          <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4">
+            Frequently Asked Questions
+          </h2>
+          <p className="text-[#9494b8] max-w-xl mx-auto">
+            Everything you need to know about ChronoTrace&apos;s privacy, low RAM footprint, and local architecture.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-6 rounded-2xl glass border border-white/10 hover:border-purple-500/30 transition-colors">
+            <h3 className="text-lg font-bold text-white mb-2">How does ChronoTrace achieve &lt; 15MB RAM and ~0% CPU?</h3>
+            <p className="text-sm text-[#9494b8] leading-relaxed">
+              Unlike bloated Electron or Python alternatives, ChronoTrace&apos;s background daemon is compiled into a lightweight native Go binary with pure Go SQLite (zero CGO). It uses jittered 2–3 second OS foreground window hooks and in-memory batching that flushes to disk only every 45 seconds, eliminating continuous CPU wakeups and disk thrashing.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl glass border border-white/10 hover:border-purple-500/30 transition-colors">
+            <h3 className="text-lg font-bold text-white mb-2">Does ChronoTrace send any data to external servers or the cloud?</h3>
+            <p className="text-sm text-[#9494b8] leading-relaxed">
+              Never. ChronoTrace has zero telemetry, zero analytics scripts, and zero cloud accounts. All recorded data stays strictly on your machine in a local SQLite file stored in your operating system&apos;s standard user application directory.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl glass border border-white/10 hover:border-purple-500/30 transition-colors">
+            <h3 className="text-lg font-bold text-white mb-2">How does the decoupled architecture work?</h3>
+            <p className="text-sm text-[#9494b8] leading-relaxed">
+              The daemon and the desktop UI are two distinct binaries. The daemon starts with your operating system and runs silently in the background. You only launch the graphical UI when you want to view analytics. When you close the window, the GUI process completely terminates while the background tracker continues running without missing a second.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl glass border border-white/10 hover:border-purple-500/30 transition-colors">
+            <h3 className="text-lg font-bold text-white mb-2">Can I query the data programmatically with scripts or home automations?</h3>
+            <p className="text-sm text-[#9494b8] leading-relaxed">
+              Yes! Every running ChronoTrace daemon exposes a local JSON REST API on <code>http://127.0.0.1:42069</code>. You can query your hourly timelines, daily summaries, and per-app usage directly using curl, Python, or shell scripts.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl glass border border-white/10 hover:border-purple-500/30 transition-colors">
+            <h3 className="text-lg font-bold text-white mb-2">Is ChronoTrace free and open-source?</h3>
+            <p className="text-sm text-[#9494b8] leading-relaxed">
+              Yes! ChronoTrace is licensed under the permissive MIT license and completely open-source on GitHub at <code>https://github.com/mahmud-r-farhan/chronotrace</code>.
+            </p>
           </div>
         </div>
       </section>

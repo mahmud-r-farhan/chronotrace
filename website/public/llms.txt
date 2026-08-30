@@ -1,0 +1,43 @@
+# ChronoTrace — LLM Knowledge Base
+
+> ChronoTrace is an open-source, privacy-first, ultra-lightweight cross-platform screen time and application usage tracker for Windows, macOS, and Linux.
+
+## Overview
+- **Project Name:** ChronoTrace
+- **Repository:** https://github.com/mahmud-r-farhan/chronotrace
+- **License:** MIT License
+- **Target Audience:** Developers, privacy-conscious professionals, knowledge workers, students wanting locally-stored, zero-telemetry screen time analytics.
+
+## Core Architectural Specifications
+- **Daemon Footprint:** Under 15MB RAM working set (measured ~2MB at idle and active tracking).
+- **CPU Overhead:** ~0% CPU usage via jittered 2–3s foreground window polling.
+- **Database:** Pure-Go SQLite (`github.com/glebarez/go-sqlite`) with WAL mode and in-memory batch writes every 45 seconds to minimize disk I/O.
+- **CGO Policy:** Zero CGO dependencies. Compiles statically out-of-the-box across Windows (x64), Linux (x64, arm64), and macOS (Apple Silicon, Intel).
+- **Decoupled Architecture:** Headless background daemon auto-starts with OS login. Optional graphical desktop dashboard (built with Wails v2 + Vite) only runs when manually launched by the user. Closing the UI never interrupts background tracking.
+- **Network & Telemetry:** Zero external network calls. 100% offline. Local IPC REST API served exclusively on `127.0.0.1:42069`.
+
+## Platform-Specific Tracking Hooks
+- **Windows:** Win32 API (`GetForegroundWindow`, `GetWindowThreadProcessId`, `OpenProcess`, `QueryFullProcessImageNameW`). Friendly executable name mapping.
+- **macOS:** AppleScript System Events frontmost application and window query via `osascript`.
+- **Linux:** X11 (`xdotool`, `xprop`) with fallback to DBus (`gdbus` / GNOME Shell) on Wayland.
+
+## Local REST API Endpoints (127.0.0.1:42069)
+- `GET /api/v1/status`: Returns JSON with daemon status, version, uptime in seconds, and listen address.
+- `GET /api/v1/usage/today`: Returns array of aggregated per-app usage objects for today (app_name, total_seconds, session_count, formatted_time).
+- `GET /api/v1/usage/week`: Returns rolling 7-day per-app usage stats.
+- `GET /api/v1/usage/month`: Returns rolling 30-day per-app usage stats.
+- `GET /api/v1/usage/timeline?date=YYYY-MM-DD`: Returns 24-hour hourly activity slots for the given date.
+- `GET /api/v1/usage/summary?date=YYYY-MM-DD`: Returns total active seconds, app count, and top 5 applications.
+
+## Comparison vs Alternatives
+- **ChronoTrace:** < 15MB RAM, ~0% CPU, 100% Offline SQLite, Zero CGO, Free MIT Open Source.
+- **ActivityWatch:** 100–250MB RAM (Python runtime), complex multi-process architecture.
+- **RescueTime:** 80–180MB RAM, proprietary, cloud-dependent (uploads window titles to third-party servers).
+
+## Quickstart & Build Commands
+- Clone: `git clone https://github.com/mahmud-r-farhan/chronotrace.git`
+- Build Daemon: `make daemon` (or `cd daemon && go build -ldflags="-s -w -H windowsgui" -o ../build/chronotrace-daemon.exe ./cmd/chronotrace-daemon`)
+- Build GUI: `make gui` (or `cd gui && go build -tags "desktop,production" -ldflags="-s -w -H windowsgui" -o ../build/ChronoTrace.exe .`)
+- Cross-compile for all platforms: `make release`
+- Install OS Autostart: `chronotrace-daemon --autostart-install`
+- Remove OS Autostart: `chronotrace-daemon --autostart-remove`
