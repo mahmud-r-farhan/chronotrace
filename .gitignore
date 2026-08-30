@@ -1,0 +1,41 @@
+# Binaries
+build/
+bin/
+*.exe
+*.out
+*.test
+*.dll
+*.so
+*.dylib
+
+# Node / Frontend
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+package-lock.json
+
+# Go
+vendor/
+go.work.sum
+
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+*.pid
+*.lock
+
+# Temp
+tmp/

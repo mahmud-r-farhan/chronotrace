@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChronoTrace — Screen Time Tracker</title>
+  <meta name="description" content="Privacy-first, ultra-lightweight screen time and app usage tracker for Windows, macOS, and Linux." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./src/styles/main.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar Navigation -->
+    <nav id="sidebar">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M12 7v5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M6.5 3.5L4 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M17.5 3.5L20 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="logo-text">ChronoTrace</span>
+      </div>
+
+      <div class="nav-links">
+        <a href="#" class="nav-item active" data-view="dashboard" id="nav-dashboard">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="#" class="nav-item" data-view="apps" id="nav-apps">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 10h16M4 14h10M4 18h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span>Apps</span>
+        </a>
+        <a href="#" class="nav-item" data-view="timeline" id="nav-timeline">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M2 12h20M2 6h4M2 18h4M18 6h4M18 18h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span>Timeline</span>
+        </a>
+        <a href="#" class="nav-item" data-view="settings" id="nav-settings">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.5"/></svg>
+          <span>Settings</span>
+        </a>
+      </div>
+
+      <div class="sidebar-footer">
+        <div id="status-badge" class="status-badge offline">
+          <span class="status-dot"></span>
+          <span class="status-text">Connecting...</span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main id="main-content">
+      <!-- Dashboard View -->
+      <div id="view-dashboard" class="view active">
+        <header class="view-header">
+          <div>
+            <h1>Dashboard</h1>
+            <p class="subtitle" id="today-date"></p>
+          </div>
+          <div class="period-tabs">
+            <button class="period-tab active" data-period="today">Today</button>
+            <button class="period-tab" data-period="week">Week</button>
+            <button class="period-tab" data-period="month">Month</button>
+          </div>
+        </header>
+
+        <!-- Stats Row -->
+        <div class="stats-row" id="stats-row">
+          <div class="stat-card">
+            <div class="stat-icon purple">
+              <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Total Time</span>
+              <span class="stat-value" id="stat-total">--</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon blue">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 10h16M4 14h10M4 18h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Apps Used</span>
+              <span class="stat-value" id="stat-apps">--</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" stroke-width="1.5"/></svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Top App</span>
+              <span class="stat-value" id="stat-top">--</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon amber">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Active Now</span>
+              <span class="stat-value" id="stat-active">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Two Column Layout -->
+        <div class="content-grid">
+          <!-- Usage Chart -->
+          <div class="card chart-card">
+            <div class="card-header">
+              <h2>App Usage</h2>
+              <span class="card-badge" id="app-count-badge">0 apps</span>
+            </div>
+            <div id="usage-chart" class="usage-chart-container">
+              <div class="empty-state">
+                <div class="spinner"></div>
+                <p>Loading usage data...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hourly Timeline -->
+          <div class="card timeline-card">
+            <div class="card-header">
+              <h2>Activity Timeline</h2>
+              <span class="card-hint">Hours of the day</span>
+            </div>
+            <div id="timeline-chart" class="timeline-container">
+              <div class="empty-state">
+                <div class="spinner"></div>
+                <p>Loading timeline...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Apps View -->
+      <div id="view-apps" class="view">
+        <header class="view-header">
+          <div>
+            <h1>All Apps</h1>
+            <p class="subtitle">Detailed per-application usage</p>
+          </div>
+          <div class="period-tabs">
+            <button class="period-tab active" data-period="today">Today</button>
+            <button class="period-tab" data-period="week">Week</button>
+            <button class="period-tab" data-period="month">Month</button>
+          </div>
+        </header>
+        <div class="card">
+          <div id="apps-list" class="apps-list">
+            <div class="empty-state">
+              <div class="spinner"></div>
+              <p>Loading apps...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline View -->
+      <div id="view-timeline" class="view">
+        <header class="view-header">
+          <div>
+            <h1>Timeline</h1>
+            <p class="subtitle">Hourly activity breakdown</p>
+          </div>
+          <input type="date" id="timeline-date-picker" class="date-picker" />
+        </header>
+        <div class="card">
+          <div id="timeline-detail" class="timeline-detail"></div>
+        </div>
+      </div>
+
+      <!-- Settings View -->
+      <div id="view-settings" class="view">
+        <header class="view-header">
+          <div>
+            <h1>Settings</h1>
+            <p class="subtitle">Configure ChronoTrace</p>
+          </div>
+        </header>
+        <div class="settings-grid">
+          <div class="card settings-card">
+            <h2 class="settings-section-title">Daemon</h2>
+            <div class="setting-item">
+              <div class="setting-info">
+                <span class="setting-name">Start with OS</span>
+                <span class="setting-desc">Automatically launch the daemon on login</span>
+              </div>
+              <label class="toggle" id="autostart-toggle-label">
+                <input type="checkbox" id="autostart-toggle" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <span class="setting-name">IPC Address</span>
+                <span class="setting-desc">Local REST API endpoint</span>
+              </div>
+              <span class="setting-value mono" id="setting-addr">127.0.0.1:42069</span>
+            </div>
+          </div>
+
+          <div class="card settings-card">
+            <h2 class="settings-section-title">About</h2>
+            <div class="setting-item">
+              <div class="setting-info">
+                <span class="setting-name">Version</span>
+              </div>
+              <span class="setting-value mono" id="setting-version">v0.1.0</span>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <span class="setting-name">Daemon Uptime</span>
+              </div>
+              <span class="setting-value" id="setting-uptime">--</span>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <span class="setting-name">Source Code</span>
+              </div>
+              <a href="https://github.com/mahmud-r-farhan/chronotrace" class="setting-link" target="_blank">GitHub ↗</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

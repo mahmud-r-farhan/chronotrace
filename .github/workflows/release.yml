@@ -1,0 +1,234 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Daemon cross-compilation ──────────────────────────────────
+  daemon:
+    name: Daemon (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            output: chronotrace-daemon-windows-amd64.exe
+          - goos: linux
+            goarch: amd64
+            output: chronotrace-daemon-linux-amd64
+          - goos: linux
+            goarch: arm64
+            output: chronotrace-daemon-linux-arm64
+          - goos: darwin
+            goarch: amd64
+            output: chronotrace-daemon-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            output: chronotrace-daemon-darwin-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build daemon
+        env:
+          GOOS:        ${{ matrix.goos }}
+          GOARCH:      ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          mkdir -p build
+          LDFLAGS="-s -w -X main.version=${{ github.ref_name }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            LDFLAGS="$LDFLAGS -H windowsgui"
+          fi
+          go build \
+            -ldflags="$LDFLAGS" \
+            -o build/${{ matrix.output }} \
+            ./daemon/cmd/chronotrace-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}
+          path: build/${{ matrix.output }}
+
+  # ── GUI — Windows ─────────────────────────────────────────────
+  gui-windows:
+    name: GUI (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend deps
+        working-directory: gui/frontend
+        run: npm install
+
+      - name: Build GUI
+        working-directory: gui
+        run: wails build -platform windows/amd64 -o ChronoTrace-windows-amd64.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChronoTrace-windows-amd64.exe
+          path: gui/build/bin/ChronoTrace-windows-amd64.exe
+
+  # ── GUI — macOS ───────────────────────────────────────────────
+  gui-macos:
+    name: GUI (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend deps
+        working-directory: gui/frontend
+        run: npm install
+
+      - name: Build GUI (Intel)
+        working-directory: gui
+        run: wails build -platform darwin/amd64
+
+      - name: Build GUI (Apple Silicon)
+        working-directory: gui
+        run: wails build -platform darwin/arm64
+
+      - name: Package
+        run: |
+          cd gui/build/bin
+          zip -r ChronoTrace-darwin-amd64.zip ChronoTrace.app || true
+          mv ChronoTrace.app ChronoTrace-arm64.app
+          zip -r ChronoTrace-darwin-arm64.zip ChronoTrace-arm64.app || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChronoTrace-darwin
+          path: gui/build/bin/*.zip
+
+  # ── GUI — Linux ───────────────────────────────────────────────
+  gui-linux:
+    name: GUI (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.0-dev \
+            libayatana-appindicator3-dev
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend deps
+        working-directory: gui/frontend
+        run: npm install
+
+      - name: Build GUI
+        working-directory: gui
+        run: wails build -platform linux/amd64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChronoTrace-linux-amd64
+          path: gui/build/bin/ChronoTrace
+
+  # ── Create GitHub Release ─────────────────────────────────────
+  release:
+    name: Create Release
+    needs: [daemon, gui-windows, gui-macos, gui-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV" ]; then
+            CHANGES=$(git log ${PREV}..HEAD --pretty=format:"- %s" --no-merges)
+          else
+            CHANGES=$(git log --pretty=format:"- %s" --no-merges | head -30)
+          fi
+          echo "CHANGES<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "ChronoTrace ${{ github.ref_name }}"
+          body: |
+            ## What's Changed
+            ${{ steps.changelog.outputs.CHANGES }}
+
+            ## Installation
+
+            ### Daemon (all platforms)
+            Download the appropriate binary for your platform and run it.
+            It will auto-register itself on first run via `--autostart-install`.
+
+            | Platform | Binary |
+            |---|---|
+            | Windows x64 | `chronotrace-daemon-windows-amd64.exe` |
+            | Linux x64   | `chronotrace-daemon-linux-amd64` |
+            | Linux arm64 | `chronotrace-daemon-linux-arm64` |
+            | macOS Intel | `chronotrace-daemon-darwin-amd64` |
+            | macOS Apple Silicon | `chronotrace-daemon-darwin-arm64` |
+
+            ### GUI (optional)
+            Download the GUI for your platform — open it any time to view your usage stats.
+
+            ---
+            > ChronoTrace daemon uses **< 15 MB RAM** and **~0% CPU**.  
+            > Your data **never leaves your device**.
+          files: release-assets/**/*
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
