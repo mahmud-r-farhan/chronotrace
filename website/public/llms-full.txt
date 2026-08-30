@@ -3,7 +3,7 @@
 ## Project Metadata
 - Title: ChronoTrace
 - Repository: https://github.com/mahmud-r-farhan/chronotrace
-- Author: Farhan & ChronoTrace Contributors
+- Author: Mahmud Rahman
 - Version: v0.1.0
 - License: MIT
 
