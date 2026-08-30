@@ -51,7 +51,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.4)] border border-purple-500/30">
-              <Image src="/logo.png" alt="ChronoTrace Logo" fill className="object-cover" priority />
+              <Image src="/logo.png" alt="ChronoTrace Logo" width={40} height={40} className="w-full h-full object-cover" priority />
             </div>
             <div>
               <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-purple-200 to-cyan-300 bg-clip-text text-transparent">
@@ -500,7 +500,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <div className="relative w-7 h-7 rounded-lg overflow-hidden border border-purple-500/30">
-              <Image src="/logo.png" alt="ChronoTrace Logo" fill className="object-cover" />
+              <Image src="/logo.png" alt="ChronoTrace Logo" width={28} height={28} className="w-full h-full object-cover" />
             </div>
             <span className="font-bold text-sm bg-gradient-to-r from-white to-purple-300 bg-clip-text text-transparent">
               ChronoTrace
