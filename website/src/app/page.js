@@ -288,9 +288,8 @@ export default function Home() {
                   key={key}
                   href={item.url}
                   onClick={() => setShowDropdown(false)}
-                  className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl transition-all ${
-                    key === userOS ? "bg-purple-500/15 border border-purple-500/30 text-white" : "hover:bg-white/5 text-[#9494b8] hover:text-white"
-                  }`}
+                  className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl transition-all ${key === userOS ? "bg-purple-500/15 border border-purple-500/30 text-white" : "hover:bg-white/5 text-[#9494b8] hover:text-white"
+                    }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="text-lg sm:text-xl">{item.icon}</span>
@@ -398,11 +397,10 @@ export default function Home() {
                 <button
                   key={period}
                   onClick={() => setSelectedPeriod(period)}
-                  className={`flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer ${
-                    selectedPeriod === period
+                  className={`flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer ${selectedPeriod === period
                       ? "bg-purple-500 text-white shadow-[0_0_12px_rgba(139,92,246,0.4)]"
                       : "text-[#9494b8] hover:text-white"
-                  }`}
+                    }`}
                 >
                   {period}
                 </button>
@@ -510,7 +508,7 @@ export default function Home() {
 
         <div className="p-4 sm:p-8 rounded-2xl sm:rounded-3xl glass border border-white/10 max-w-4xl mx-auto font-mono text-[10px] sm:text-xs md:text-sm text-[#9494b8] overflow-x-auto">
           <pre className="text-center leading-relaxed sm:leading-loose whitespace-pre">
-{`┌──────────────────────────────────────┐        ┌──────────────────────────────────────┐
+            {`┌──────────────────────────────────────┐        ┌──────────────────────────────────────┐
 │       Headless Background Daemon     │  ───►  │           Local SQLite DB            │
 │         (Under 15MB RAM, 0% CPU)     │        │      (~/.local/share, %APPDATA%)     │
 └──────────────────────────────────────┘        └──────────────────┬───────────────────┘
@@ -696,7 +694,6 @@ export default function Home() {
             <a href="https://github.com/mahmud-r-farhan/chronotrace" className="hover:text-white transition-colors">GitHub</a>
             <a href="https://github.com/mahmud-r-farhan/chronotrace/blob/main/LICENSE" className="hover:text-white transition-colors">MIT License</a>
             <a href="https://github.com/mahmud-r-farhan/chronotrace/releases" className="hover:text-white transition-colors">Releases</a>
-            <a href="/llms.txt" className="hover:text-white transition-colors">llms.txt</a>
           </div>
         </div>
       </footer>
