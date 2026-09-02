@@ -169,7 +169,12 @@ func (d *DB) Flush() error {
 	defer stmt.Close()
 
 	for _, r := range batch {
-		if _, err := stmt.Exec(r.AppName, r.WindowTitle, r.Duration, r.RecordedAt); err != nil {
+		recTime := r.RecordedAt
+		if recTime.IsZero() {
+			recTime = time.Now()
+		}
+		formattedTime := recTime.Format("2006-01-02 15:04:05")
+		if _, err := stmt.Exec(r.AppName, r.WindowTitle, r.Duration, formattedTime); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("insert: %w", err)
 		}

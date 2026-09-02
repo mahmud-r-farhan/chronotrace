@@ -8,6 +8,7 @@ const inter = Inter({
 });
 
 export const metadata = {
+  metadataBase: new URL("https://chronotrace.org"),
   title: "ChronoTrace — Privacy-First Screen Time Tracker",
   description:
     "Open-source, cross-platform screen time tracker. Under 15MB RAM, zero telemetry. Local SQLite for Windows, macOS, and Linux.",
