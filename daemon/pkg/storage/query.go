@@ -156,12 +156,16 @@ func (d *DB) queryAppUsage(query string, args ...interface{}) ([]AppUsage, error
 	var results []AppUsage
 	for rows.Next() {
 		var a AppUsage
-		var lastSeen sql.NullTime
-		if err := rows.Scan(&a.AppName, &a.TotalSeconds, &a.SessionCount, &lastSeen); err != nil {
+		var lastSeenStr sql.NullString
+		if err := rows.Scan(&a.AppName, &a.TotalSeconds, &a.SessionCount, &lastSeenStr); err != nil {
 			return nil, err
 		}
-		if lastSeen.Valid {
-			a.LastSeen = lastSeen.Time
+		if lastSeenStr.Valid {
+			if t, err := time.Parse("2006-01-02 15:04:05", lastSeenStr.String); err == nil {
+				a.LastSeen = t
+			} else if t, err := time.Parse(time.RFC3339, lastSeenStr.String); err == nil {
+				a.LastSeen = t
+			}
 		}
 		a.FormattedTime = formatDuration(a.TotalSeconds)
 		results = append(results, a)
