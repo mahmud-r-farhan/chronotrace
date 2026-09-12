@@ -108,11 +108,14 @@ func (a *App) StartDaemon() error {
 	}
 
 	cmd := exec.Command(daemonPath)
+	// Run the daemon detached so it survives the GUI exiting and does not
+	// receive signals sent to the GUI's process group (e.g. terminal Ctrl+C).
+	detachCmd(cmd)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start daemon: %w", err)
 	}
 
-	// Wait up to 3s for daemon to become ready
+	// Wait up to 3s for the daemon API to become ready.
 	for i := 0; i < 6; i++ {
 		time.Sleep(500 * time.Millisecond)
 		if _, err := a.client.GetStatus(); err == nil {
@@ -120,7 +123,7 @@ func (a *App) StartDaemon() error {
 		}
 	}
 
-	return nil
+	return fmt.Errorf("daemon started (%s) but did not respond within 3s", daemonPath)
 }
 
 // --- Status ---
@@ -173,12 +176,13 @@ func (a *App) GetSummary(date string) (*storage.DaySummary, error) {
 
 // EnableAutostart registers the daemon in OS autostart.
 func (a *App) EnableAutostart() error {
-	mgr := autostart.New()
+	// Autostart entries require the absolute path of the daemon binary; a
+	// bare fallback name would produce a broken OS entry.
 	daemonPath, err := findDaemonExecutable()
 	if err != nil {
-		daemonPath = "chronotrace-daemon"
+		return fmt.Errorf("cannot enable autostart: %w", err)
 	}
-	return mgr.Enable(daemonPath)
+	return autostart.New().Enable(daemonPath)
 }
 
 // DisableAutostart removes the daemon from OS autostart.

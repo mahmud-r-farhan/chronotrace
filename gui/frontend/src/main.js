@@ -46,6 +46,8 @@ function navigateTo(view) {
 
   state.view = view;
 
+  if (view === 'dashboard' || view === 'apps') syncPeriodTabs();
+
   if (view === 'dashboard') loadDashboard();
   if (view === 'apps')      loadApps();
   if (view === 'timeline')  loadTimeline();
@@ -55,21 +57,20 @@ function navigateTo(view) {
 // ────────────────────────────────────────────────────────────────
 // Status poller
 // ────────────────────────────────────────────────────────────────
+function setStatusBadge(online) {
+  const badge = document.getElementById('status-badge');
+  if (!badge) return;
+  badge.className = online ? 'status-badge online' : 'status-badge offline';
+  const text = badge.querySelector('.status-text');
+  if (text) text.textContent = online ? 'Daemon connected' : 'Daemon offline';
+}
+
 async function pollStatus() {
   try {
     const s = await go.GetStatus();
-    const badge = document.getElementById('status-badge');
-    if (s.connected) {
-      badge.className = 'status-badge online';
-      badge.querySelector('.status-text').textContent = 'Daemon connected';
-    } else {
-      badge.className = 'status-badge offline';
-      badge.querySelector('.status-text').textContent = 'Daemon offline';
-    }
+    setStatusBadge(!!s && s.connected);
   } catch {
-    const badge = document.getElementById('status-badge');
-    badge.className = 'status-badge offline';
-    badge.querySelector('.status-text').textContent = 'Daemon offline';
+    setStatusBadge(false);
   }
 }
 
@@ -133,11 +134,11 @@ async function loadUsageChart() {
 
     if (!data || data.length === 0) {
       container.innerHTML = '<div class="empty-state"><p>No data yet. Keep working! 🚀</p></div>';
-      document.getElementById('app-count-badge').textContent = '0 apps';
+      setEl('app-count-badge', '0 apps');
       return;
     }
 
-    document.getElementById('app-count-badge').textContent = `${data.length} app${data.length !== 1 ? 's' : ''}`;
+    setEl('app-count-badge', `${data.length} app${data.length !== 1 ? 's' : ''}`);
 
     const max = data[0].total_seconds || 1;
     container.innerHTML = '';
@@ -147,11 +148,11 @@ async function loadUsageChart() {
       const row = document.createElement('div');
       row.className = 'usage-bar-row';
       row.innerHTML = `
-        <span class="usage-bar-label" title="${app.app_name}">${app.app_name}</span>
+        <span class="usage-bar-label" title="${escapeHtml(app.app_name)}">${escapeHtml(app.app_name)}</span>
         <div class="usage-bar-track">
           <div class="usage-bar-fill bar-color-${i % 8}" style="width:0%" data-pct="${pct}"></div>
         </div>
-        <span class="usage-bar-time">${app.formatted_time || formatDuration(app.total_seconds)}</span>
+        <span class="usage-bar-time">${escapeHtml(app.formatted_time || formatDuration(app.total_seconds))}</span>
       `;
       container.appendChild(row);
     });
@@ -260,7 +261,7 @@ async function loadApps() {
       row.innerHTML = `
         <span class="app-rank">#${i + 1}</span>
         <div class="app-info">
-          <div class="app-name">${app.app_name}</div>
+          <div class="app-name">${escapeHtml(app.app_name)}</div>
           <div class="app-sessions">${app.session_count || 0} session${app.session_count !== 1 ? 's' : ''}</div>
         </div>
         <div class="app-bar-col">
@@ -268,7 +269,7 @@ async function loadApps() {
             <div class="app-bar-fill bar-color-${i % 8}" style="width:0%" data-pct="${pct}"></div>
           </div>
         </div>
-        <span class="app-time">${app.formatted_time || formatDuration(app.total_seconds)}</span>
+        <span class="app-time">${escapeHtml(app.formatted_time || formatDuration(app.total_seconds))}</span>
       `;
       container.appendChild(row);
     });
@@ -292,7 +293,7 @@ async function loadTimeline() {
   const container = document.getElementById('timeline-detail');
   if (!container) return;
 
-  const date = picker?.value || new Date().toISOString().slice(0, 10);
+  const date = picker?.value || localDateStr();
 
   container.innerHTML = '<div class="empty-state"><div class="spinner"></div><p>Loading...</p></div>';
 
@@ -369,6 +370,24 @@ function setEl(id, text) {
   if (el) el.textContent = text;
 }
 
+// Escape untrusted strings (app names, window titles) before injecting them
+// into innerHTML — a window title could otherwise execute as markup.
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Local calendar date as YYYY-MM-DD. Note: toISOString() is UTC and returns
+// the wrong date near midnight for non-UTC users.
+function localDateStr(d = new Date()) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function formatDuration(seconds) {
   if (!seconds || seconds <= 0) return '0s';
   if (seconds < 60) return `${seconds}s`;
@@ -409,7 +428,7 @@ function mockTimeline() {
 
 function mockSummary() {
   return {
-    date: new Date().toISOString().slice(0, 10),
+    date: localDateStr(),
     total_seconds: 19260,
     app_count: 8,
     top_apps: mockUsage().slice(0, 5),
@@ -431,16 +450,20 @@ function initNavigation() {
 function initPeriodTabs() {
   document.querySelectorAll('.period-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      // Update active tab in same parent group
-      tab.closest('.period-tabs').querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-
       state.period = tab.dataset.period;
       state.usageCache = {}; // Bust cache on period change
+      syncPeriodTabs();      // Keep tab groups in both views consistent
 
       if (state.view === 'dashboard') loadUsageChart();
       if (state.view === 'apps')      loadApps();
     });
+  });
+}
+
+// syncPeriodTabs marks the tab matching state.period active in every tab group.
+function syncPeriodTabs() {
+  document.querySelectorAll('.period-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.period === state.period);
   });
 }
 
@@ -464,7 +487,7 @@ function initAutostart() {
 function initDatePicker() {
   const picker = document.getElementById('timeline-date-picker');
   if (!picker) return;
-  picker.value = new Date().toISOString().slice(0, 10);
+  picker.value = localDateStr();
   picker.addEventListener('change', () => {
     if (state.view === 'timeline') loadTimeline();
   });
@@ -492,10 +515,18 @@ async function init() {
   }, 60_000);
 }
 
-// Wait for Wails runtime to be ready
-if (typeof window.runtime !== 'undefined') {
-  window.runtime.EventsOn('wails:ready', init);
+// Wait for the Wails runtime to be ready when embedded; fall back to a plain
+// DOM boot in browser dev mode (mock data).
+function boot() {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+}
+
+if (typeof window.runtime !== 'undefined' && typeof window.runtime.EventsOn === 'function') {
+  window.runtime.EventsOn('wails:ready', boot);
 } else {
-  // Browser dev mode
-  document.addEventListener('DOMContentLoaded', init);
+  boot();
 }
