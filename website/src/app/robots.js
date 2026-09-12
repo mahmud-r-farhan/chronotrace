@@ -1,5 +1,6 @@
 export default function robots() {
-  const baseUrl = "https://github.com/mahmud-r-farhan/chronotrace";
+  // Must be the site's own origin (matches metadataBase), not the repo URL.
+  const baseUrl = "https://chronotrace.org";
 
   return {
     rules: [
