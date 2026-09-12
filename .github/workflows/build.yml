@@ -65,3 +65,44 @@ jobs:
         with:
           name: ${{ matrix.output }}
           path: build/${{ matrix.output }}
+
+  test:
+    name: Vet & Test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install GUI system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libayatana-appindicator3-dev
+
+      - name: Prepare frontend embed placeholder
+        run: |
+          mkdir -p gui/frontend/dist
+          echo '<!-- placeholder for go:embed -->' > gui/frontend/dist/index.html
+
+      - name: Check gofmt
+        run: |
+          UNFORMATTED=$(gofmt -l daemon gui)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "These files are not gofmt-formatted:"
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+
+      - name: Vet
+        run: |
+          cd daemon && go vet ./... && cd ..
+          cd gui && go vet ./...
+
+      - name: Test daemon
+        run: cd daemon && go test ./...
+
+      - name: Test GUI
+        run: cd gui && go test ./...

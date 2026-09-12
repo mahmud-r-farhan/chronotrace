@@ -4,7 +4,7 @@ VERSION       ?= $(shell git describe --tags --always --dirty 2>/dev/null || ech
 LDFLAGS       := -s -w -X main.version=$(VERSION)
 BUILD_DIR     := build
 
-.PHONY: all daemon gui run-daemon dev clean install-tools release help
+.PHONY: all daemon gui run-daemon dev clean install-tools release help test vet fmt autostart-install autostart-remove
 
 all: daemon gui
 
@@ -55,10 +55,24 @@ release:
 	GOOS=darwin  GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_DAEMON)-darwin-arm64   ./daemon/cmd/chronotrace-daemon
 	@echo "✓ All daemon binaries built in $(BUILD_DIR)/"
 
+## test: Run Go tests for the daemon and GUI modules
+test:
+	cd daemon && go test ./...
+	@mkdir -p gui/frontend/dist
+	@test -f gui/frontend/dist/index.html || echo '<!-- placeholder so go:embed works without a frontend build -->' > gui/frontend/dist/index.html
+	cd gui && go test ./...
+
 ## vet: Run go vet
 vet:
 	cd daemon && go vet ./...
 	cd gui && go vet ./...
+
+## fmt: Check that all Go sources are gofmt-formatted
+fmt:
+	@unformatted=$$(gofmt -l daemon gui 2>/dev/null); \
+	if [ -n "$$unformatted" ]; then \
+		echo "gofmt needed for:"; echo "$$unformatted"; exit 1; \
+	fi
 
 ## clean: Remove build artifacts
 clean:
