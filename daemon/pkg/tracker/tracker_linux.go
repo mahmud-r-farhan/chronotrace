@@ -133,7 +133,9 @@ func parseGDBusEval(raw string) (string, bool) {
 	for _, quote := range []byte{'\'', '"'} {
 		start := strings.IndexByte(raw, quote)
 		end := strings.LastIndexByte(raw, quote)
-		if start >= 0 && end > start {
+		// end > start+1 requires a non-empty payload between the quotes;
+		// an empty result ('' or "") carries no window information.
+		if start >= 0 && end > start+1 {
 			return raw[start+1 : end], true
 		}
 	}
