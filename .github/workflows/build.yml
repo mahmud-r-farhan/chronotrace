@@ -102,7 +102,31 @@ jobs:
           cd gui && go vet ./...
 
       - name: Test daemon
-        run: cd daemon && go test ./...
+        run: |
+          cd daemon
+          go test -v ./... 2>&1 | tee /tmp/daemon-test.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" != "0" ]; then
+            {
+              echo '### Daemon test failures'
+              echo '```'
+              grep -E '^(=== RUN|--- FAIL|--- PASS|FAIL|ok |panic|.*\.go:[0-9]+)' /tmp/daemon-test.log | tail -n 150
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $status
 
       - name: Test GUI
-        run: cd gui && go test ./...
+        run: |
+          cd gui
+          go test -v ./... 2>&1 | tee /tmp/gui-test.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" != "0" ]; then
+            {
+              echo '### GUI test failures'
+              echo '```'
+              grep -E '^(=== RUN|--- FAIL|--- PASS|FAIL|ok |panic|.*\.go:[0-9]+)' /tmp/gui-test.log | tail -n 150
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $status

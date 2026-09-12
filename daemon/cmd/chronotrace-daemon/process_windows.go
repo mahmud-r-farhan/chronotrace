@@ -4,6 +4,11 @@ package main
 
 import "golang.org/x/sys/windows"
 
+// stillActive is the exit code reported by GetExitCodeProcess for a process
+// that has not exited yet (Win32 STILL_ACTIVE). x/sys/windows does not
+// export this constant, so define it locally.
+const stillActive = 259
+
 // isProcessAlive returns true if a process with the given PID is running.
 func isProcessAlive(pid int) bool {
 	if pid <= 0 {
@@ -19,5 +24,5 @@ func isProcessAlive(pid int) bool {
 	if err := windows.GetExitCodeProcess(h, &code); err != nil {
 		return false
 	}
-	return code == windows.STILL_ACTIVE
+	return code == stillActive
 }
