@@ -15,6 +15,18 @@ import (
 // windowsTracker implements Tracker using Win32 APIs via golang.org/x/sys/windows.
 type windowsTracker struct{}
 
+// user32 procs are resolved once; GetActiveWindow runs every 2-3 seconds, so
+// re-creating the lazy DLL bindings on each poll would be wasteful.
+var (
+	user32                = windows.NewLazySystemDLL("user32.dll")
+	procGetWindowTextW    = user32.NewProc("GetWindowTextW")
+	procGetWindowTextLenW = user32.NewProc("GetWindowTextLengthW")
+)
+
+// maxPathLen is the Windows long-path limit. MAX_PATH (260) would fail for
+// executables installed under deeply nested directories.
+const maxPathLen = 32768
+
 func newPlatformTracker() Tracker {
 	return &windowsTracker{}
 }
@@ -53,8 +65,8 @@ func (t *windowsTracker) GetActiveWindow() (*ActiveWindowInfo, error) {
 	}
 	defer windows.CloseHandle(handle)
 
-	// Query the full path of the executable.
-	var size uint32 = windows.MAX_PATH
+	// Query the full path of the executable (long-path safe buffer).
+	var size uint32 = maxPathLen
 	buf := make([]uint16, size)
 	err = windows.QueryFullProcessImageName(handle, 0, &buf[0], &size)
 	if err != nil {
@@ -78,17 +90,12 @@ func (t *windowsTracker) GetActiveWindow() (*ActiveWindowInfo, error) {
 
 // getWindowTitle safely retrieves the title text of a window handle.
 func getWindowTitle(hwnd windows.HWND) string {
-	// GetWindowTextLength + GetWindowText via raw syscall (not wrapped in x/sys).
-	user32 := windows.NewLazySystemDLL("user32.dll")
-	getWindowTextW := user32.NewProc("GetWindowTextW")
-	getWindowTextLengthW := user32.NewProc("GetWindowTextLengthW")
-
-	length, _, _ := getWindowTextLengthW.Call(uintptr(hwnd))
+	length, _, _ := procGetWindowTextLenW.Call(uintptr(hwnd))
 	if length == 0 {
 		return ""
 	}
 	buf := make([]uint16, length+1)
-	n, _, _ := getWindowTextW.Call(
+	n, _, _ := procGetWindowTextW.Call(
 		uintptr(hwnd),
 		uintptr(unsafe.Pointer(&buf[0])),
 		uintptr(length+1),
@@ -96,7 +103,7 @@ func getWindowTitle(hwnd windows.HWND) string {
 	if n == 0 {
 		return ""
 	}
-	return syscall.UTF16ToString(buf)
+	return syscall.UTF16ToString(buf[:n])
 }
 
 // exeToAppName converts a full executable path to a friendly app name.

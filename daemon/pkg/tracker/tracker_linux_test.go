@@ -35,3 +35,32 @@ func TestParseWMClass(t *testing.T) {
 		}
 	}
 }
+
+func TestParseGDBusEval(t *testing.T) {
+	tests := []struct {
+		name     string
+		raw      string
+		wantOK   bool
+		wantBody string
+	}{
+		{"simple tuple", "(true, 'Firefox|firefox')\n", true, "Firefox|firefox"},
+		// The old strings.Trim cutset-based parsing corrupted payloads whose
+		// first/last characters appeared in "(true, ')\n" — e.g. a class name
+		// ending in "e" lost that final character.
+		{"class ending in cutset chars", "(true, 'Terminal|google-chrome')", true, "Terminal|google-chrome"},
+		{"title starting with cutset chars", "(true, 'true crime|vlc')", true, "true crime|vlc"},
+		{"double-quoted payload", `(true, "it's here|xterm")`, true, "it's here|xterm"},
+		{"failed eval", "(false, '')", false, ""},
+		{"empty success payload", "(true, '')", false, ""},
+		{"dbus error", "Error: GDBus.Error:org.freedesktop.DBus.Error.NotSupported: Method Eval not available", false, ""},
+		{"empty output", "", false, ""},
+	}
+
+	for _, tt := range tests {
+		body, ok := parseGDBusEval(tt.raw)
+		if ok != tt.wantOK || body != tt.wantBody {
+			t.Errorf("%s: parseGDBusEval(%q) = (%q, %v), want (%q, %v)",
+				tt.name, tt.raw, body, ok, tt.wantBody, tt.wantOK)
+		}
+	}
+}

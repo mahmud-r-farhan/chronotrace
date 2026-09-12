@@ -122,6 +122,111 @@ func TestFormatDuration(t *testing.T) {
 	}
 }
 
+// TestSessionCounting verifies that long sessions stored as consecutive chunks
+// count as a single session, while chunks separated by a long idle gap count
+// as separate sessions.
+func TestSessionCounting(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", tmpDir)
+
+	db, err := Open()
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Now()
+	base := time.Date(now.Year(), now.Month(), now.Day(), 10, 0, 0, 0, time.Local)
+	day := base.Format("2006-01-02")
+
+	// One long session: three consecutive ~60 s chunks (as the daemon emits).
+	db.Add(UsageRecord{AppName: "VSCode", Duration: 60, RecordedAt: base.Add(60 * time.Second)})
+	db.Add(UsageRecord{AppName: "VSCode", Duration: 60, RecordedAt: base.Add(121 * time.Second)})
+	db.Add(UsageRecord{AppName: "VSCode", Duration: 60, RecordedAt: base.Add(182 * time.Second)})
+	// Same app again after a 10-minute gap => a second session.
+	db.Add(UsageRecord{AppName: "VSCode", Duration: 60, RecordedAt: base.Add(10*time.Minute + 242*time.Second)})
+	// A different app with a single record.
+	db.Add(UsageRecord{AppName: "Chrome", Duration: 90, RecordedAt: base.Add(300 * time.Second)})
+
+	if err := db.Flush(); err != nil {
+		t.Fatalf("Flush failed: %v", err)
+	}
+
+	apps, err := db.GetUsageByDay(day)
+	if err != nil {
+		t.Fatalf("GetUsageByDay failed: %v", err)
+	}
+	if len(apps) != 2 {
+		t.Fatalf("expected 2 apps, got %d: %+v", len(apps), apps)
+	}
+
+	byName := map[string]AppUsage{}
+	for _, a := range apps {
+		byName[a.AppName] = a
+	}
+	if got := byName["VSCode"]; got.TotalSeconds != 240 || got.SessionCount != 2 {
+		t.Errorf("VSCode: got total=%d sessions=%d, want total=240 sessions=2", got.TotalSeconds, got.SessionCount)
+	}
+	if got := byName["Chrome"]; got.TotalSeconds != 90 || got.SessionCount != 1 {
+		t.Errorf("Chrome: got total=%d sessions=%d, want total=90 sessions=1", got.TotalSeconds, got.SessionCount)
+	}
+
+	// LastSeen must be parsed as local time, not UTC.
+	if !byName["VSCode"].LastSeen.Equal(base.Add(10*time.Minute + 242*time.Second)) {
+		t.Errorf("VSCode LastSeen = %v, want %v", byName["VSCode"].LastSeen, base.Add(10*time.Minute+242*time.Second))
+	}
+}
+
+// TestCloseIdempotent verifies Close can be called more than once safely.
+func TestCloseIdempotent(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", tmpDir)
+
+	db, err := Open()
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+
+	db.Add(UsageRecord{AppName: "App", Duration: 5, RecordedAt: time.Now()})
+	if err := db.Close(); err != nil {
+		t.Fatalf("first Close failed: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("second Close should be a no-op, got: %v", err)
+	}
+
+	// The record added before Close must have been flushed to disk.
+	db2, err := Open()
+	if err != nil {
+		t.Fatalf("reopen failed: %v", err)
+	}
+	defer db2.Close()
+
+	apps, err := db2.GetUsageByDay("")
+	if err != nil {
+		t.Fatalf("GetUsageByDay failed: %v", err)
+	}
+	if len(apps) != 1 || apps[0].AppName != "App" || apps[0].TotalSeconds != 5 {
+		t.Errorf("expected the buffered record to survive Close, got %+v", apps)
+	}
+}
+
+func TestParseLocalTime(t *testing.T) {
+	tm := parseLocalTime("2026-09-12 14:30:00")
+	if tm.IsZero() {
+		t.Fatal("expected a non-zero time")
+	}
+	if tm.Location() != time.Local {
+		t.Errorf("expected local timezone, got %v", tm.Location())
+	}
+	if tm.Hour() != 14 || tm.Minute() != 30 {
+		t.Errorf("unexpected time of day: %v", tm)
+	}
+	if !parseLocalTime("not a timestamp").IsZero() {
+		t.Error("expected zero time for unparseable input")
+	}
+}
+
 func TestDataDirOverride(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", tmpDir)
