@@ -158,11 +158,15 @@ make run-daemon
 # Wails hot-reload dev server
 make dev
 
+# Run all Go tests
+make test
+
 # Cross-compile daemon for all platforms
 make release
 
-# Run go vet
+# Run go vet / check gofmt formatting
 make vet
+make fmt
 ```
 
 ---

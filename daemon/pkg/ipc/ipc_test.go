@@ -135,3 +135,65 @@ func TestIPCServerAndClient(t *testing.T) {
 		t.Errorf("missing CORS header")
 	}
 }
+
+// TestServerRouting exercises the real production handler wiring: JSON 404
+// for unknown endpoints, 405 for non-GET methods, 400 for invalid dates, and
+// 200 for valid requests.
+func TestServerRouting(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", tmpDir)
+
+	db, err := storage.Open()
+	if err != nil {
+		t.Fatalf("storage.Open failed: %v", err)
+	}
+	defer db.Close()
+
+	server := New("127.0.0.1:0", db, "1.0.0-test")
+	ts := httptest.NewServer(server.srv.Handler)
+	defer ts.Close()
+
+	get := func(path string) *http.Response {
+		resp, err := ts.Client().Get(ts.URL + path)
+		if err != nil {
+			t.Fatalf("GET %s failed: %v", path, err)
+		}
+		return resp
+	}
+
+	resp := get(apiPrefix + "/nope")
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("expected 404 for unknown endpoint, got %d", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected JSON content type for 404, got %q", ct)
+	}
+
+	resp, err = ts.Client().Post(ts.URL+apiPrefix+"/status", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST failed: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405 for POST, got %d", resp.StatusCode)
+	}
+
+	resp = get(apiPrefix + "/usage/today?date=not-a-date")
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid date, got %d", resp.StatusCode)
+	}
+
+	resp = get(apiPrefix + "/usage/today?date=" + time.Now().Format("2006-01-02"))
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 for valid request, got %d", resp.StatusCode)
+	}
+
+	resp = get(apiPrefix + "/status")
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 for status, got %d", resp.StatusCode)
+	}
+}

@@ -19,6 +19,10 @@ import (
 const (
 	driverName    = "sqlite"
 	batchInterval = 45 * time.Second // flush in-memory buffer every 45 s
+
+	// maxBufferedRecords caps the in-memory buffer so a persistently failing
+	// database can never grow memory without bound.
+	maxBufferedRecords = 100_000
 )
 
 // UsageRecord is a single in-memory usage event before it is flushed to disk.
@@ -31,11 +35,12 @@ type UsageRecord struct {
 
 // DB wraps an *sql.DB with an in-memory batch buffer for low I/O writes.
 type DB struct {
-	db     *sql.DB
-	mu     sync.Mutex
-	buffer []UsageRecord
-	done   chan struct{}
-	wg     sync.WaitGroup
+	db        *sql.DB
+	mu        sync.Mutex
+	buffer    []UsageRecord
+	done      chan struct{}
+	wg        sync.WaitGroup
+	closeOnce sync.Once
 }
 
 // Open returns an initialised DB, creating the database file and schema if needed.
@@ -81,6 +86,7 @@ func (d *DB) migrate() error {
 	pragmas := []string{
 		`PRAGMA journal_mode=WAL`,
 		`PRAGMA synchronous=NORMAL`,
+		`PRAGMA busy_timeout=5000`,
 		`PRAGMA temp_store=MEMORY`,
 		`PRAGMA cache_size=-8000`, // 8 MB page cache
 	}
@@ -118,6 +124,11 @@ INSERT OR IGNORE INTO schema_version (version) VALUES (1);
 func (d *DB) Add(rec UsageRecord) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if len(d.buffer) >= maxBufferedRecords {
+		// Buffer is full (e.g. disk errors prevented flushing) — drop the
+		// oldest record so memory stays bounded.
+		d.buffer = d.buffer[1:]
+	}
 	d.buffer = append(d.buffer, rec)
 }
 
@@ -144,6 +155,7 @@ func (d *DB) flushLoop() {
 }
 
 // Flush writes all buffered records to SQLite in a single transaction.
+// On failure the batch is returned to the buffer so no data is lost.
 func (d *DB) Flush() error {
 	d.mu.Lock()
 	if len(d.buffer) == 0 {
@@ -154,6 +166,16 @@ func (d *DB) Flush() error {
 	d.buffer = nil
 	d.mu.Unlock()
 
+	if err := d.writeBatch(batch); err != nil {
+		d.requeue(batch)
+		return err
+	}
+	log.Printf("[storage] flushed %d records", len(batch))
+	return nil
+}
+
+// writeBatch inserts a batch of records within a single transaction.
+func (d *DB) writeBatch(batch []UsageRecord) error {
 	tx, err := d.db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -173,6 +195,8 @@ func (d *DB) Flush() error {
 		if recTime.IsZero() {
 			recTime = time.Now()
 		}
+		// Timestamps are stored as local wall-clock strings so date() and
+		// strftime() queries line up with the user's local calendar day.
 		formattedTime := recTime.Format("2006-01-02 15:04:05")
 		if _, err := stmt.Exec(r.AppName, r.WindowTitle, r.Duration, formattedTime); err != nil {
 			_ = tx.Rollback()
@@ -182,15 +206,31 @@ func (d *DB) Flush() error {
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit: %w", err)
 	}
-	log.Printf("[storage] flushed %d records", len(batch))
 	return nil
 }
 
+// requeue returns an unwritten batch to the front of the buffer, keeping the
+// buffer bounded even when the database fails persistently.
+func (d *DB) requeue(batch []UsageRecord) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	combined := append(batch, d.buffer...)
+	if len(combined) > maxBufferedRecords {
+		combined = combined[len(combined)-maxBufferedRecords:]
+	}
+	d.buffer = combined
+}
+
 // Close flushes remaining data and closes the database cleanly.
+// It is safe to call Close more than once.
 func (d *DB) Close() error {
-	close(d.done)
-	d.wg.Wait()
-	return d.db.Close()
+	var err error
+	d.closeOnce.Do(func() {
+		close(d.done)
+		d.wg.Wait()
+		err = d.db.Close()
+	})
+	return err
 }
 
 // dataDir returns the OS-appropriate application data directory for ChronoTrace.

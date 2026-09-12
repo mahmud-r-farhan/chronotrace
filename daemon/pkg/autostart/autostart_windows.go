@@ -13,7 +13,7 @@ import (
 // golang.org/x/sys/windows/registry is part of golang.org/x/sys.
 
 const (
-	regKeyPath  = `Software\Microsoft\Windows\CurrentVersion\Run`
+	regKeyPath   = `Software\Microsoft\Windows\CurrentVersion\Run`
 	regValueName = "ChronoTraceDaemon"
 )
 

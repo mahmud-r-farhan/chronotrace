@@ -11,6 +11,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -19,6 +20,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -28,11 +30,26 @@ import (
 	"github.com/mahmud-r-farhan/chronotrace/pkg/tracker"
 )
 
+// version is stamped at build time via -ldflags "-X main.version=...".
+// It must remain a var: the linker cannot override constants.
+var version = "0.1.0"
+
 const (
-	version    = "0.1.0"
-	appName    = "ChronoTrace Daemon"
-	minPollMs  = 2000
-	maxPollMs  = 3000
+	appName   = "ChronoTrace Daemon"
+	minPollMs = 2000
+	maxPollMs = 3000
+
+	// maxChunkSeconds limits how much time a single buffered usage record may
+	// cover. Long sessions in the same app are split into chunks so the hourly
+	// timeline attributes time to the correct hour instead of piling a whole
+	// session into the hour in which it ended.
+	maxChunkSeconds = 60
+
+	// maxStaleSeconds is the largest gap between two successful polls that is
+	// still trusted as continuous usage. Bigger gaps mean the loop was starved
+	// (system suspend, locked screen, tracker errors) — that time cannot be
+	// attributed to any app and is dropped instead of inflating the last one.
+	maxStaleSeconds = 2 * maxChunkSeconds
 )
 
 func main() {
@@ -55,7 +72,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("[daemon] cannot determine executable path: %v", err)
 		}
-		exe, _ = filepath.Abs(exe)
+		exe, err = filepath.Abs(exe)
+		if err != nil {
+			log.Fatalf("[daemon] cannot resolve absolute executable path: %v", err)
+		}
 		if err := as.Enable(exe); err != nil {
 			log.Fatalf("[daemon] autostart install failed: %v", err)
 		}
@@ -121,7 +141,8 @@ func main() {
 }
 
 // runPollingLoop polls the active window at 2-3 second jittered intervals.
-// It aggregates consecutive time spent in the same app before buffering.
+// Time spent in the same app is aggregated and buffered in chunks of at most
+// maxChunkSeconds, so hourly statistics stay accurate even for long sessions.
 func runPollingLoop(ctx context.Context, t tracker.Tracker, db *storage.DB) {
 	var (
 		lastApp   string
@@ -134,10 +155,11 @@ func runPollingLoop(ctx context.Context, t tracker.Tracker, db *storage.DB) {
 		jitter := time.Duration(minPollMs+rand.Intn(maxPollMs-minPollMs)) * time.Millisecond
 		select {
 		case <-ctx.Done():
-			// Flush any last pending duration on shutdown.
+			// Flush any last pending duration on shutdown (if it is recent
+			// enough to be trustworthy).
 			if lastApp != "" && !lastSeen.IsZero() {
 				elapsed := int64(time.Since(lastSeen).Seconds())
-				if elapsed > 0 {
+				if elapsed > 0 && elapsed <= maxStaleSeconds {
 					db.Add(storage.UsageRecord{
 						AppName:     lastApp,
 						WindowTitle: lastTitle,
@@ -170,9 +192,19 @@ func runPollingLoop(ctx context.Context, t tracker.Tracker, db *storage.DB) {
 
 		elapsed := int64(now.Sub(lastSeen).Seconds())
 
+		if elapsed > maxStaleSeconds {
+			// The loop was starved since the last successful poll (suspend,
+			// locked screen, tracker outage). Drop the unverifiable gap and
+			// restart tracking from the current window.
+			lastApp = info.AppName
+			lastTitle = info.WindowTitle
+			lastSeen = now
+			continue
+		}
+
 		if info.AppName != lastApp {
 			// App changed — record the time spent on the previous app.
-			if elapsed > 0 && lastApp != "" {
+			if elapsed > 0 {
 				db.Add(storage.UsageRecord{
 					AppName:     lastApp,
 					WindowTitle: lastTitle,
@@ -181,10 +213,19 @@ func runPollingLoop(ctx context.Context, t tracker.Tracker, db *storage.DB) {
 				})
 			}
 			lastApp = info.AppName
-			lastTitle = info.WindowTitle
+			lastSeen = now
+		} else if elapsed >= maxChunkSeconds {
+			// Same app for a while — emit a chunk so long sessions spread
+			// across the hours they actually cover.
+			db.Add(storage.UsageRecord{
+				AppName:     lastApp,
+				WindowTitle: info.WindowTitle,
+				Duration:    elapsed,
+				RecordedAt:  now,
+			})
 			lastSeen = now
 		}
-		// Same app — update title in case it changed (e.g. browser tab).
+		// Track the latest title in case it changed (e.g. browser tab).
 		lastTitle = info.WindowTitle
 	}
 }
@@ -205,24 +246,39 @@ func lockFilePath() string {
 	}
 }
 
-// acquireLock creates a lock file containing the current PID.
-// Returns an error if the lock file already exists and the process is still alive.
+// acquireLock atomically creates a lock file containing the current PID.
+// It returns an error if a live process already holds the lock; stale locks
+// left behind by crashed processes are detected and reclaimed.
 func acquireLock(path string) error {
-	_ = os.MkdirAll(filepath.Dir(path), 0o755)
-
-	// Check if existing lock is stale.
-	if data, err := os.ReadFile(path); err == nil {
-		var oldPID int
-		if _, err := fmt.Sscan(string(data), &oldPID); err == nil {
-			if isProcessAlive(oldPID) {
-				return fmt.Errorf("process %d is already running", oldPID)
-			}
-			// Stale lock — remove it.
-			_ = os.Remove(path)
-		}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create lock dir: %w", err)
 	}
 
-	return os.WriteFile(path, []byte(fmt.Sprintf("%d", os.Getpid())), 0o644)
+	for attempt := 0; attempt < 2; attempt++ {
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if err == nil {
+			_, _ = fmt.Fprintf(f, "%d\n", os.Getpid())
+			return f.Close()
+		}
+		if !errors.Is(err, os.ErrExist) {
+			return err
+		}
+
+		// Lock file exists — check whether the owning process is still alive.
+		if data, rerr := os.ReadFile(path); rerr == nil {
+			var oldPID int
+			if _, serr := fmt.Sscan(strings.TrimSpace(string(data)), &oldPID); serr == nil &&
+				oldPID > 0 && oldPID != os.Getpid() && isProcessAlive(oldPID) {
+				return fmt.Errorf("process %d is already running", oldPID)
+			}
+		}
+
+		// Stale or unreadable lock — reclaim it and retry once.
+		if rerr := os.Remove(path); rerr != nil && !errors.Is(rerr, os.ErrNotExist) {
+			return rerr
+		}
+	}
+	return fmt.Errorf("could not acquire lock at %s", path)
 }
 
 // releaseLock removes the lock file.

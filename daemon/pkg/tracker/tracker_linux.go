@@ -3,7 +3,10 @@
 package tracker
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -45,39 +48,45 @@ func (t *linuxTracker) GetActiveWindow() (*ActiveWindowInfo, error) {
 }
 
 func (t *linuxTracker) getViaXdotool() (*ActiveWindowInfo, error) {
-	// Get active window ID
+	// Get active window ID.
 	widOut, err := exec.Command("xdotool", "getactivewindow").Output()
 	if err != nil {
 		return &ActiveWindowInfo{AppName: "Unknown"}, nil
 	}
 	winID := strings.TrimSpace(string(widOut))
+	if winID == "" || winID == "0" {
+		return &ActiveWindowInfo{AppName: "Unknown"}, nil
+	}
 
-	// Get window name and class in one call
-	nameOut, _ := exec.Command("xdotool", "getactivewindow", "getwindowname").Output()
+	// Get window name.
+	nameOut, _ := exec.Command("xdotool", "getwindowname", winID).Output()
 	title := strings.TrimSpace(string(nameOut))
 
-	// Get WM_CLASS to identify app name
-	classOut, _ := exec.Command("xprop", "-id", winID, "WM_CLASS").Output()
-	appName := parseWMClass(string(classOut))
+	// Identify the app via WM_CLASS: prefer xdotool's own lookup, fall back
+	// to xprop when xdotool cannot resolve the class.
+	appName := ""
+	if classOut, cerr := exec.Command("xdotool", "getwindowclassname", winID).Output(); cerr == nil {
+		appName = strings.TrimSpace(string(classOut))
+	} else if xpropOut, perr := exec.Command("xprop", "-id", winID, "WM_CLASS").Output(); perr == nil {
+		appName = parseWMClass(string(xpropOut))
+	}
 	if appName == "" {
 		appName = title
 	}
 
-	// Try to get PID and exe path
-	pidOut, _ := exec.Command("xdotool", "getactivewindow", "getwindowpid").Output()
-	pidStr := strings.TrimSpace(string(pidOut))
+	info := &ActiveWindowInfo{AppName: appName, WindowTitle: title}
 
-	exePath := ""
-	if pidStr != "" {
-		exeOut, _ := exec.Command("readlink", "-f", "/proc/"+pidStr+"/exe").Output()
-		exePath = strings.TrimSpace(string(exeOut))
+	// PID and executable path (best-effort: not every window sets _NET_WM_PID).
+	if pidOut, perr := exec.Command("xdotool", "getwindowpid", winID).Output(); perr == nil {
+		if pid, aerr := strconv.Atoi(strings.TrimSpace(string(pidOut))); aerr == nil && pid > 0 {
+			info.PID = uint32(pid)
+			if exe, lerr := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid)); lerr == nil {
+				info.ExePath = exe
+			}
+		}
 	}
 
-	return &ActiveWindowInfo{
-		AppName:     appName,
-		WindowTitle: title,
-		ExePath:     exePath,
-	}, nil
+	return info, nil
 }
 
 func (t *linuxTracker) getViaGDBus() (*ActiveWindowInfo, error) {
@@ -93,23 +102,44 @@ func (t *linuxTracker) getViaGDBus() (*ActiveWindowInfo, error) {
 		return &ActiveWindowInfo{AppName: "Unknown"}, nil
 	}
 
-	// Parse the response — format: (true, '<title>|<class>\n')
-	raw := string(out)
-	raw = strings.Trim(raw, "(true, ')\n")
-	parts := strings.SplitN(raw, "|", 2)
-
-	info := &ActiveWindowInfo{}
-	if len(parts) >= 1 {
-		info.WindowTitle = strings.TrimSpace(parts[0])
-		info.AppName = info.WindowTitle
+	// Parse the response — format: (true, '<title>|<class>')
+	payload, ok := parseGDBusEval(string(out))
+	if !ok {
+		return &ActiveWindowInfo{AppName: "Unknown"}, nil
 	}
-	if len(parts) >= 2 {
-		cls := strings.TrimSpace(parts[1])
-		if cls != "" && cls != "unknown" {
-			info.AppName = cls
-		}
+
+	title, class := payload, ""
+	if idx := strings.Index(payload, "|"); idx >= 0 {
+		title, class = payload[:idx], payload[idx+1:]
+	}
+
+	info := &ActiveWindowInfo{WindowTitle: strings.TrimSpace(title)}
+	info.AppName = info.WindowTitle
+	if class = strings.TrimSpace(class); class != "" && class != "unknown" {
+		info.AppName = class
 	}
 	return info, nil
+}
+
+// parseGDBusEval extracts the string result from a gdbus Eval response such as
+// "(true, 'title|class')" and reports whether the evaluation succeeded.
+// gdbus prints GVariant strings in single quotes; payloads that themselves
+// contain an apostrophe are printed double-quoted instead.
+func parseGDBusEval(raw string) (string, bool) {
+	raw = strings.TrimSpace(raw)
+	if !strings.HasPrefix(raw, "(true") {
+		return "", false
+	}
+	for _, quote := range []byte{'\'', '"'} {
+		start := strings.IndexByte(raw, quote)
+		end := strings.LastIndexByte(raw, quote)
+		// end > start+1 requires a non-empty payload between the quotes;
+		// an empty result ('' or "") carries no window information.
+		if start >= 0 && end > start+1 {
+			return raw[start+1 : end], true
+		}
+	}
+	return "", false
 }
 
 // parseWMClass extracts the application name from xprop WM_CLASS output.

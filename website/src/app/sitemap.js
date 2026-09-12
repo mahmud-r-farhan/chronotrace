@@ -1,5 +1,6 @@
 export default function sitemap() {
-  const baseUrl = "https://github.com/mahmud-r-farhan/chronotrace";
+  // Must list the site's own pages (matches metadataBase), not GitHub URLs.
+  const baseUrl = "https://chronotrace.org";
   const lastModified = new Date();
 
   return [
